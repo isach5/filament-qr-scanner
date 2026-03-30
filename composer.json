@@ -1,0 +1,30 @@
+{
+    "name": "emuniq/filament-qr-scanner",
+    "description": "A Filament v3 & v4 plugin for HTML5 QR/barcode camera scanning with multi-camera support, permission handling, and Livewire integration.",
+    "license": "MIT",
+    "keywords": [
+        "filament",
+        "laravel",
+        "qr",
+        "barcode",
+        "scanner",
+        "camera",
+        "html5-qrcode",
+        "livewire"
+    ],
+    "autoload": {
+        "psr-4": {
+            "Emuniq\\FilamentQrScanner\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Emuniq\\FilamentQrScanner\\QrScannerServiceProvider"
+            ]
+        }
+    },
+    "require": {
+        "filament/filament": "^3.0|^4.0"
+    }
+}
