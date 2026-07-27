@@ -38,6 +38,18 @@
     // camera last. That fallback lives at the end of pickDefault().
     var PREFERENCE = ['wide', 'back', 'ultrawide', 'macro', 'telephoto', 'front'];
 
+    // Order the switcher shows them in. Rear lenses first, most useful for
+    // scanning first, and the front camera last — an operator scanning a label
+    // wants it about never, and a browser that enumerates it first should not
+    // decide the menu.
+    var DISPLAY_ORDER = ['wide', 'back', 'ultrawide', 'macro', 'telephoto', 'unknown', 'front'];
+
+    // Every kind classify() can return is in DISPLAY_ORDER, and a test keeps
+    // the two lists in step, so there is no -1 case to defend against here.
+    function displayRank(kind) {
+        return DISPLAY_ORDER.indexOf(kind);
+    }
+
     function classify(label) {
         var text = String(label == null ? '' : label).trim();
 
@@ -83,10 +95,16 @@
                     : (names.fallback || 'Camera') + ' ' + (index + 1);
             }
 
-            return { id: device.id, label: label, kind: kind, name: name };
+            return { id: device.id, label: label, kind: kind, name: name, order: index };
         });
 
-        return disambiguate(described);
+        described.sort(function (a, b) {
+            return displayRank(a.kind) - displayRank(b.kind) || a.order - b.order;
+        });
+
+        return disambiguate(described.map(function (camera) {
+            return { id: camera.id, label: camera.label, kind: camera.kind, name: camera.name };
+        }));
     }
 
     /** Number any names that ended up identical: "Trasera" -> "Trasera 1", "Trasera 2". */
@@ -155,12 +173,53 @@
         return devices[devices.length - 1].id;
     }
 
+    /**
+     * Which of the described cameras is actually streaming.
+     *
+     * The id a running track reports does not always appear in the device list
+     * — Safari is inconsistent about it — and a select bound to an id that
+     * matches no option silently displays the first one instead, telling the
+     * operator "Front" while the rear camera is live. So: trust the running id
+     * only if it is really in the list, otherwise fall back to the best guess.
+     *
+     * @return string|null  id of an entry that exists in `described`
+     */
+    function resolveActive(described, runningId) {
+        if (!described || described.length === 0) {
+            return null;
+        }
+
+        var known = function (id) {
+            return described.filter(function (camera) {
+                return camera.id === id;
+            })[0];
+        };
+
+        if (runningId && known(runningId)) {
+            return runningId;
+        }
+
+        for (var i = 0; i < PREFERENCE.length; i++) {
+            var match = described.filter(function (camera) {
+                return camera.kind === PREFERENCE[i];
+            })[0];
+
+            if (match) {
+                return match.id;
+            }
+        }
+
+        return described[0].id;
+    }
+
     var CameraPicker = {
         classify: classify,
         describe: describe,
         pickDefault: pickDefault,
+        resolveActive: resolveActive,
         KINDS: KINDS.map(function (entry) { return entry.kind; }),
         PREFERENCE: PREFERENCE,
+        DISPLAY_ORDER: DISPLAY_ORDER,
     };
 
     global.EmuniqCameraPicker = CameraPicker;

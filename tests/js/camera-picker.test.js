@@ -82,14 +82,16 @@ test('an empty or missing label is unknown, not a crash', () => {
     assert.equal(CameraPicker.classify('a1b2c3d4e5'), 'unknown');
 });
 
-test('every rear lens of an iPhone gets its own readable name', () => {
+test('every rear lens of an iPhone gets its own readable name, rear first', () => {
     const described = CameraPicker.describe(IPHONE_ES, NAMES);
 
+    // The browser enumerates the front camera first. An operator scanning a
+    // label wants it about never, so it goes last.
     assert.deepEqual(described.map((c) => c.name), [
-        'Frontal',
         'Gran angular',
         'Ultra gran angular',
         'Teleobjetivo',
+        'Frontal',
     ]);
 
     // The bug this replaces: three buttons all reading "Trasera".
@@ -107,6 +109,8 @@ test('names that would still collide get numbered', () => {
     );
 
     assert.deepEqual(described.map((c) => c.name), ['Trasera 1', 'Trasera 2', 'Frontal']);
+    // Numbering follows the order the operator sees, not the browser's.
+    assert.deepEqual(described.map((c) => c.id), ['1', '2', '3']);
 });
 
 test('an unrecognised but short label is shown as-is', () => {
@@ -212,4 +216,65 @@ test('a device with no label at all is handled', () => {
     assert.deepEqual(described.map((c) => c.kind), ['unknown', 'unknown', 'unknown']);
     assert.deepEqual(described.map((c) => c.name), ['Cámara 1', 'Cámara 2', 'Cámara 3']);
     assert.equal(CameraPicker.pickDefault([{ id: '1' }, { id: '2' }]), '2');
+});
+
+test('the menu is ordered by how useful the lens is for scanning', () => {
+    const described = CameraPicker.describe(
+        [
+            { id: 'front', label: 'Front Camera' },
+            { id: 'tele', label: 'Back Telephoto Camera' },
+            { id: 'odd', label: 'Logitech C920' },
+            { id: 'ultra', label: 'Back Ultra Wide Camera' },
+            { id: 'wide', label: 'Back Dual Wide Camera' },
+        ],
+        NAMES,
+    );
+
+    assert.deepEqual(described.map((c) => c.id), ['wide', 'ultra', 'tele', 'odd', 'front']);
+});
+
+test('cameras of the same kind keep the order the browser gave them', () => {
+    const described = CameraPicker.describe(
+        [
+            { id: 'b1', label: 'Back Camera' },
+            { id: 'f1', label: 'Front Camera' },
+            { id: 'b2', label: 'Back Camera' },
+        ],
+        NAMES,
+    );
+
+    assert.deepEqual(described.map((c) => c.id), ['b1', 'b2', 'f1']);
+});
+
+test('the running camera is trusted only when it is really in the list', () => {
+    // A select bound to an id that matches no option silently shows its first
+    // option, which had the switcher reading "Frontal" while the rear camera
+    // was streaming.
+    const described = CameraPicker.describe(IPHONE_ES, NAMES);
+
+    assert.equal(CameraPicker.resolveActive(described, 'b3'), 'b3');
+    assert.equal(CameraPicker.resolveActive(described, 'not-a-device'), 'b1');
+    assert.equal(CameraPicker.resolveActive(described, null), 'b1');
+});
+
+test('resolveActive falls back to the first entry when no kind is recognised', () => {
+    const described = CameraPicker.describe([{ id: 'x', label: '' }, { id: 'y', label: '' }], NAMES);
+
+    assert.equal(CameraPicker.resolveActive(described, 'gone'), 'x');
+});
+
+test('resolveActive on nothing returns nothing', () => {
+    assert.equal(CameraPicker.resolveActive([], 'b1'), null);
+    assert.equal(CameraPicker.resolveActive(null, 'b1'), null);
+});
+
+test('every kind the classifier can produce has a place in the menu order', () => {
+    // The sort takes DISPLAY_ORDER.indexOf() at face value, so a kind added to
+    // the classifier and forgotten here would sort to the front of the menu.
+    for (const kind of [...CameraPicker.KINDS, 'unknown']) {
+        assert.ok(
+            CameraPicker.DISPLAY_ORDER.includes(kind),
+            `${kind} is missing from DISPLAY_ORDER`,
+        );
+    }
 });

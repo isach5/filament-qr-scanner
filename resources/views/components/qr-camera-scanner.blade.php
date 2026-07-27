@@ -176,17 +176,17 @@
 
                 this.cameras = EmuniqCameraPicker.describe(devices, this.cameraNames);
 
-                if (!this.cameraId) {
-                    // Started from a facingMode constraint, so ask the running
-                    // track which device the browser actually handed us.
-                    let running = null;
-                    try {
-                        running = this.scanner.getRunningTrackSettings()?.deviceId ?? null;
-                    } catch (e) {}
+                // Ask the running track which device the browser actually
+                // handed us. resolveActive() only trusts that id if it really
+                // is in the list: a select bound to an unknown id silently
+                // shows its first option, which had the switcher naming the
+                // front camera while the rear one was streaming.
+                let running = this.cameraId;
+                try {
+                    running = running || (this.scanner.getRunningTrackSettings()?.deviceId ?? null);
+                } catch (e) {}
 
-                    this.cameraId = running
-                        ?? EmuniqCameraPicker.pickDefault(devices, null);
-                }
+                this.cameraId = EmuniqCameraPicker.resolveActive(this.cameras, running);
             } catch (e) {}
         },
 
@@ -476,127 +476,151 @@
         </x-slot>
 
         <div class="w-full min-w-0 space-y-3">
-            {{-- Camera switcher. A select, not a row of buttons: a phone reports
-                 up to four lenses, and a flex row of pills contributes its full
-                 intrinsic width to the dialog no matter how it is clipped —
-                 which dragged the modal off the side of the screen. A select
-                 has a width of its own and truncates its own text. --}}
-            <div x-show="cameras.length > 1" x-cloak class="flex w-full min-w-0 items-center gap-2">
+            {{-- Toolbar. The camera select is a select and not a row of pills
+                 on purpose: a flex row of buttons hands the dialog its full
+                 intrinsic width however it is clipped, and four lenses with
+                 long names pushed the modal off the side of a phone. --}}
+            <div class="flex w-full min-w-0 items-center gap-2">
                 <label
+                    x-show="cameras.length > 1"
+                    x-cloak
                     :for="'qr-camera-{{ $modalId }}'"
-                    class="shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
-                >{{ __('filament-qr-scanner::scanner.camera') }}:</label>
+                    class="shrink-0 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                >{{ __('filament-qr-scanner::scanner.camera') }}</label>
                 <select
+                    x-show="cameras.length > 1"
+                    x-cloak
                     :id="'qr-camera-{{ $modalId }}'"
                     x-model="cameraId"
                     @change="switchCamera($event.target.value)"
-                    class="min-w-0 flex-1 truncate rounded-lg border-gray-300 bg-white py-1.5 pl-3 pr-8 text-sm text-gray-900 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white"
+                    class="min-w-0 flex-1 truncate rounded-lg border-gray-300 bg-white py-1.5 pl-3 pr-8 text-sm text-gray-950 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white"
                 >
                     <template x-for="cam in cameras" :key="cam.id">
                         <option :value="cam.id" x-text="cam.name"></option>
                     </template>
                 </select>
-            </div>
 
-            {{-- Scanner viewport with flash overlay.
-                 max-width plus overflow hidden are a hard stop: the library
-                 sizes its own <video> from the camera's frame, and a stream
-                 wider than the modal used to push the whole dialog off the
-                 side of a phone screen, taking the close button with it. --}}
-            <div class="relative rounded-lg overflow-hidden bg-black" style="width: 100%; max-width: 100%; min-height: 300px;">
-                <div id="qr-reader-{{ $modalId }}" style="width: 100%; max-width: 100%; min-height: 300px; overflow: hidden;"></div>
-                <div
-                    x-show="flashing"
-                    x-cloak
-                    class="absolute inset-0 pointer-events-none bg-green-400/60 transition-opacity duration-300 motion-reduce:transition-none"
-                ></div>
-            </div>
-
-            {{-- Torch and zoom: only rendered when the running track has them.
-                 A laptop webcam has neither, a phone back camera has both. --}}
-            <div x-show="torchSupported || zoomSupported" x-cloak class="flex w-full min-w-0 flex-wrap items-center gap-3">
-                <button
-                    x-show="torchSupported"
-                    type="button"
-                    @click="toggleTorch()"
-                    :aria-pressed="torchOn ? 'true' : 'false'"
-                    :class="torchOn
-                        ? 'bg-amber-400 text-amber-950 shadow-sm'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 min-h-[32px]"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
-                    </svg>
-                    <span x-text="torchOn
-                        ? '{{ __('filament-qr-scanner::scanner.torch_on') }}'
-                        : '{{ __('filament-qr-scanner::scanner.torch_off') }}'"></span>
-                </button>
-
-                <div x-show="zoomSupported" class="flex items-center gap-2 min-w-[10rem] flex-1">
-                    <label
-                        :for="'qr-zoom-{{ $modalId }}'"
-                        class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
-                    >{{ __('filament-qr-scanner::scanner.zoom') }}</label>
-                    <input
-                        :id="'qr-zoom-{{ $modalId }}'"
-                        type="range"
-                        class="flex-1 accent-primary-600"
-                        :min="zoomMin"
-                        :max="zoomMax"
-                        :step="zoomStep"
-                        :value="zoomValue"
-                        :aria-valuetext="zoomValue + 'x'"
-                        @input="applyZoom(parseFloat($event.target.value))"
-                    />
-                    <span class="text-xs tabular-nums text-gray-500 dark:text-gray-400 w-10 text-right" x-text="zoomValue + 'x'"></span>
+                <div class="ml-auto shrink-0">
+                    <button
+                        type="button"
+                        @click="toggleSound()"
+                        :aria-pressed="soundOn ? 'true' : 'false'"
+                        :aria-label="soundOn
+                            ? '{{ __('filament-qr-scanner::scanner.sound_on') }}'
+                            : '{{ __('filament-qr-scanner::scanner.sound_off') }}'"
+                        :title="soundOn
+                            ? '{{ __('filament-qr-scanner::scanner.sound_on') }}'
+                            : '{{ __('filament-qr-scanner::scanner.sound_off') }}'"
+                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5"
+                    >
+                        <svg x-show="soundOn" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd" />
+                        </svg>
+                        <svg x-show="!soundOn" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
                 </div>
             </div>
 
-            {{-- Last scan banner. aria-live so a screen reader announces the
-                 read: the visual flash and the beep are the only other cues. --}}
+            {{-- Viewfinder. max-width plus overflow hidden are a hard stop: the
+                 library sizes its own <video> from the camera frame, and a
+                 stream wider than the modal used to drag the whole dialog off
+                 the side of a phone screen, close button included. --}}
+            <div
+                class="relative overflow-hidden rounded-xl bg-black ring-1 ring-gray-950/10 dark:ring-white/10"
+                style="width: 100%; max-width: 100%; min-height: 300px;"
+            >
+                <div id="qr-reader-{{ $modalId }}" style="width: 100%; max-width: 100%; min-height: 300px; overflow: hidden;"></div>
+
+                <div
+                    x-show="flashing"
+                    x-cloak
+                    class="pointer-events-none absolute inset-0 bg-green-400/60 transition-opacity duration-300 motion-reduce:transition-none"
+                ></div>
+
+                {{-- Reading counter, kept out of the way of the scan window. --}}
+                <div
+                    x-show="scanCount > 0"
+                    x-cloak
+                    class="pointer-events-none absolute right-2 top-2 rounded-full bg-gray-950/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm"
+                    x-text="scanCount + (scanCount === 1 ? ' {{ __('filament-qr-scanner::scanner.reading_singular') }}' : ' {{ __('filament-qr-scanner::scanner.reading_plural') }}')"
+                ></div>
+
+                {{-- Torch and zoom sit on the feed, the way a camera app puts
+                     them: where the operator is already looking, and costing no
+                     extra height in a dialog that has little to spare. Only
+                     rendered when the running track actually has them. --}}
+                <div
+                    x-show="torchSupported || zoomSupported"
+                    x-cloak
+                    class="absolute inset-x-0 bottom-0 flex min-w-0 items-center gap-3 bg-gradient-to-t from-gray-950/80 to-transparent px-3 pb-3 pt-6"
+                >
+                    <button
+                        x-show="torchSupported"
+                        type="button"
+                        @click="toggleTorch()"
+                        :aria-pressed="torchOn ? 'true' : 'false'"
+                        aria-label="{{ __('filament-qr-scanner::scanner.torch') }}"
+                        title="{{ __('filament-qr-scanner::scanner.torch') }}"
+                        :class="torchOn ? 'bg-amber-400 text-amber-950' : 'bg-white/15 text-white hover:bg-white/25'"
+                        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full backdrop-blur-sm transition"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" style="width:1.125rem;height:1.125rem" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <div x-show="zoomSupported" class="flex min-w-0 flex-1 items-center gap-2">
+                        <label :for="'qr-zoom-{{ $modalId }}'" class="sr-only">{{ __('filament-qr-scanner::scanner.zoom') }}</label>
+                        <input
+                            :id="'qr-zoom-{{ $modalId }}'"
+                            type="range"
+                            class="min-w-0 flex-1 accent-white"
+                            :min="zoomMin"
+                            :max="zoomMax"
+                            :step="zoomStep"
+                            :value="zoomValue"
+                            :aria-valuetext="zoomValue + 'x'"
+                            @input="applyZoom(parseFloat($event.target.value))"
+                        />
+                        <span class="w-9 shrink-0 text-right text-xs font-medium tabular-nums text-white" x-text="zoomValue + 'x'"></span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Last read. aria-live because the flash and the beep are the
+                 only other feedback a scan gets. --}}
             <div
                 x-show="lastScannedCode"
                 x-cloak
                 aria-live="polite"
-                class="flex items-center justify-between gap-3 p-3 rounded-lg bg-green-100 text-green-900 dark:bg-green-900/50 dark:text-green-100 text-sm"
+                class="flex min-w-0 items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-900 ring-1 ring-green-600/20 dark:bg-green-500/10 dark:text-green-200 dark:ring-green-400/20"
             >
-                <div class="flex items-center gap-2 min-w-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                    </svg>
-                    <div class="min-w-0">
-                        <p class="text-xs uppercase tracking-wide opacity-75">{{ __('filament-qr-scanner::scanner.last_scan') }}</p>
-                        <p class="font-mono truncate" x-text="lastScannedCode"></p>
-                    </div>
-                </div>
-                <span class="shrink-0 px-2 py-1 rounded-full bg-green-200 dark:bg-green-800 text-xs font-semibold" x-text="scanCount + (scanCount === 1 ? ' {{ __('filament-qr-scanner::scanner.reading_singular') }}' : ' {{ __('filament-qr-scanner::scanner.reading_plural') }}')"></span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="truncate font-mono" x-text="lastScannedCode"></span>
             </div>
 
             {{-- Hint --}}
-            <p x-show="!lastScannedCode" x-cloak class="text-xs text-gray-500 dark:text-gray-400 text-center">
+            <p x-show="!lastScannedCode" x-cloak class="text-center text-xs text-gray-500 dark:text-gray-400">
                 {{ __('filament-qr-scanner::scanner.continuous_hint') }}
             </p>
 
             {{-- Error inside modal --}}
-            <div x-show="error" x-cloak class="p-3 rounded-lg bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 text-sm" x-text="error"></div>
+            <div x-show="error" x-cloak class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/20" x-text="error"></div>
         </div>
 
         <x-slot name="footerActions">
-            <span x-show="soundOn">
-                <x-filament::button color="gray" icon="heroicon-o-speaker-wave" @click="toggleSound()">
-                    {{ __('filament-qr-scanner::scanner.sound_on') }}
-                </x-filament::button>
-            </span>
-            <span x-show="!soundOn" x-cloak>
-                <x-filament::button color="gray" icon="heroicon-o-speaker-x-mark" @click="toggleSound()">
-                    {{ __('filament-qr-scanner::scanner.sound_off') }}
-                </x-filament::button>
-            </span>
-            {{-- Gray, not danger: closing the scanner destroys nothing, and on
-                 a shop floor a red button reads as stop / abort / something
-                 broke. It is also the most-pressed button in the modal. --}}
-            <x-filament::button color="gray" @click="stopScanning(); $dispatch('close-modal', { id: '{{ $modalId }}' })">
+            {{-- One neutral, full-width action. Closing the scanner destroys
+                 nothing, so danger colouring was wrong, and on a shop floor red
+                 reads as stop / abort / something broke. --}}
+            <x-filament::button
+                color="gray"
+                class="w-full"
+                @click="stopScanning(); $dispatch('close-modal', { id: '{{ $modalId }}' })"
+            >
                 {{ __('filament-qr-scanner::scanner.close') }}
             </x-filament::button>
         </x-slot>

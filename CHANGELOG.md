@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.7.0 — 2026-07-27
+
+### Fixed
+
+- **The switcher named the front camera while the rear one was streaming.** A
+  select bound to a device id that matches no option silently displays its
+  first one. The active camera is now resolved against the list that is
+  actually rendered, so what the operator reads is what is running.
+- **The camera menu was in the browser's order**, which puts the front camera
+  first. It is ordered by how useful the lens is for scanning now: wide →
+  rear → ultra wide → macro → telephoto → front.
+
+### Changed
+
+- The torch button no longer changes its label from "Light" to "Light on". It
+  resized under the operator's thumb, and the colour and `aria-pressed`
+  already carry the state. `scanner.torch_on` and `scanner.torch_off` are
+  replaced by a single `scanner.torch` string.
+- Modal redesign: camera select and sound toggle share one toolbar, torch and
+  zoom sit on the feed the way a camera app puts them, the reading counter is a
+  badge on the viewfinder, and the footer carries one full-width action. The
+  dialog is shorter, which is what a phone was short of.
+
+### Added
+
+- A test that parses `x-data` the way a browser does — value ends at the first
+  quote — so a stray `"` in a comment or a translation can never again close
+  the attribute early and dump the component's javascript onto the page.
+
 ## v1.6.0 — 2026-07-27
 
 ### Fixed

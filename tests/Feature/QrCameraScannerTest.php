@@ -262,7 +262,7 @@ it('delegates camera naming and choice to the picker module', function () {
     expect($html)
         ->toContain('camera-picker')
         ->toContain('EmuniqCameraPicker.describe(devices, this.cameraNames)')
-        ->toContain('EmuniqCameraPicker.pickDefault(')
+        ->toContain('EmuniqCameraPicker.resolveActive(this.cameras, running)')
         ->not->toContain('devices[devices.length - 1]');
 });
 
@@ -362,4 +362,82 @@ it('maps camera failures to the translated explanations', function () {
         ->toContain(__('filament-qr-scanner::scanner.error_denied'))
         ->toContain(__('filament-qr-scanner::scanner.error_not_found'))
         ->toContain(__('filament-qr-scanner::scanner.error_in_use'));
+});
+
+it('keeps the sound toggle in the toolbar and one action in the footer', function () {
+    // The footer used to carry two buttons; on a phone the dialog needs the
+    // height more than it needs a second row of chrome.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('toggleSound()')
+        ->toContain(':aria-pressed="soundOn')
+        ->toContain('fi-btn fi-size-md  w-full');
+});
+
+it('overlays torch and zoom on the feed instead of adding a row', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('absolute inset-x-0 bottom-0')
+        ->toContain('toggleTorch()')
+        ->toContain('applyZoom(parseFloat($event.target.value))');
+});
+
+it('shows torch state with colour, never with changing text', function () {
+    // A label that flips between "Luz" and "Luz encendida" resizes the button
+    // under the operator's thumb, and the colour already says it.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('aria-label="' . __('filament-qr-scanner::scanner.torch') . '"')
+        ->toContain(':aria-pressed="torchOn')
+        ->toContain("torchOn ? 'bg-amber-400 text-amber-950'")
+        ->not->toContain('torch_on')
+        ->not->toContain('torch_off');
+});
+
+it('shows the reading count on the viewfinder', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('x-show="scanCount > 0"')
+        ->toContain(__('filament-qr-scanner::scanner.reading_plural'));
+});
+
+it('never emits a raw double quote inside the x-data attribute', function () {
+    // x-data is a double-quoted HTML attribute. One stray " anywhere inside it
+    // — a comment, a string, a translation — closes the attribute early and the
+    // browser renders the rest of the component's javascript as page text. It
+    // costs a production page, and nothing else catches it.
+    //
+    // Parsed the way a browser parses it: the value ends at the FIRST quote
+    // after x-data=", not at the one the author meant.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    $open = strpos($html, ' x-data="');
+    expect($open)->not->toBeFalse('x-data attribute not found');
+
+    $open += strlen(' x-data="');
+    $value = substr($html, $open, strpos($html, '"', $open) - $open);
+
+    // The last things defined in x-data. If a stray quote truncated it, the
+    // browser would never see these.
+    expect($value)
+        ->toContain('onDetected')
+        ->toContain('resetSession')
+        ->toContain('resumeAfterRejection');
+});
+
+it('keeps every window listener free of raw double quotes too', function () {
+    // Same failure mode for the x-on: attributes, which are also double quoted.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    $listeners = [
+        'scan-rejected' => 'handleRejection($event.detail)',
+        'scanner-reset' => 'resetSession()',
+        'scan-resume' => 'resumeAfterRejection()',
+    ];
+
+    foreach ($listeners as $event => $expected) {
+        preg_match('/x-on:' . preg_quote($event, '/') . '\.window="([^"]*)"/', $html, $matches);
+
+        expect($matches[1] ?? null)->toBe($expected, "listener for {$event}");
+    }
 });
