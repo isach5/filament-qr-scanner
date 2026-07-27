@@ -40,3 +40,12 @@ it('covers every symbology the bundled library knows', function () {
 
     expect(SupportedFormats::ALL)->toHaveCount(17);
 });
+
+it('skips blank entries instead of choking on them', function () {
+    // A config line like 'QR_CODE,,CODE_39' or a trailing comma in a Blade prop
+    // should not blow up the render.
+    expect(SupportedFormats::normalise(['QR_CODE', '', '   ', 'CODE_39']))
+        ->toBe(['QR_CODE', 'CODE_39']);
+
+    expect(SupportedFormats::normalise([' ']))->toBe([]);
+});

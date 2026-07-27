@@ -209,10 +209,18 @@ Chrome/Chromium (desktop and Android), Safari (iOS and macOS), Firefox, Edge. Ca
 
 ## Testing
 
+The PHP side and the browser side are tested separately, and both are held at 100%.
+
 ```bash
 composer install
-vendor/bin/pest
+composer test               # Pest + Testbench
+composer test:coverage      # same, gated at 100% line coverage (needs pcov or xdebug)
+
+npm run test                # node --test, no dependencies
+npm run test:js:coverage    # line / branch / function coverage
 ```
+
+The decision layer of the scanner — what counts as a new read, as the same code still sitting in the camera frame, or as a deliberate re-scan — lives in `resources/dist/scan-session.js`, apart from Alpine and the DOM. Two production bugs came out of that logic, so it is a plain module with its own suite rather than an inline `x-data` blob. The Blade component only carries out what it decides.
 
 ## Credits
 

@@ -1,0 +1,9 @@
+{
+    "name": "@emuniq/filament-qr-scanner",
+    "private": true,
+    "type": "commonjs",
+    "description": "Test harness for the browser-side scanner logic. No build step and no dependencies — resources/dist ships as plain scripts.",
+    "scripts": {
+        "test": "node --test tests/js/"
+    }
+}

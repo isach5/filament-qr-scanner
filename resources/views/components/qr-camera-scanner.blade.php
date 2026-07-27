@@ -32,6 +32,8 @@
     $scriptUrl = config('filament-qr-scanner.scanner.script_url')
         ?: FilamentAsset::getScriptSrc('html5-qrcode', 'emuniq/filament-qr-scanner');
 
+    $sessionUrl = FilamentAsset::getScriptSrc('scan-session', 'emuniq/filament-qr-scanner');
+
     // Normalised to an array so a single scalar and a list of arguments both
     // spread cleanly into $wire.call().
     $callArgs = $wireActionArgs === null
@@ -41,7 +43,7 @@
 
 <div
     wire:ignore
-    x-load-js="{{ Js::from([$scriptUrl]) }}"
+    x-load-js="{{ Js::from([$scriptUrl, $sessionUrl]) }}"
     x-on:close-modal.window="if ($event.detail?.id === '{{ $modalId }}') stopScanning()"
     x-on:scan-rejected.window="handleRejection($event.detail)"
     x-on:scanner-reset.window="resetSession()"
@@ -55,15 +57,19 @@
         loading: false,
         active: false,
         lastScannedCode: '',
-        lastScannedAt: 0,
         scanCount: 0,
         flashing: false,
         soundOn: localStorage.getItem('qr-scanner-sound') !== '0',
-        scannedCodes: new Set(),
-        scannedCodeTimes: new Map(),
         wasOpenWhenRejected: false,
-        duplicateWindow: {{ (int) $duplicateWindow }},
         formats: {{ Js::from($formats) }},
+
+        // Set lazily: EmuniqScanSession arrives with x-load-js, which resolves
+        // after x-data is evaluated.
+        _session: null,
+        session() {
+            return this._session
+                ??= new EmuniqScanSession({ duplicateWindow: {{ (int) $duplicateWindow }} });
+        },
 
         friendlyName(cam, index) {
             const label = (cam.label || '').trim();
@@ -186,41 +192,24 @@
         },
 
         onDetected(text) {
-            text = String(text).trim();
-            if (!text) return;
+            // Every dedup decision lives in EmuniqScanSession, unit tested on
+            // its own. Here we only carry out what it decided.
+            const { action, code } = this.session().evaluate(text, Date.now());
 
-            const now = Date.now();
-            if (this.lastScannedAt && (now - this.lastScannedAt) < 400) return;
+            if (action === 'ignore') return;
 
-            // Per-code sliding window. While a code stays in the camera frame
-            // html5-qrcode fires ~fps times a second and each fire refreshes
-            // that code's timestamp, so only a real GAP (operator moved the
-            // camera away and came back) counts as a deliberate re-scan.
-            // Tracking a single lastScannedCode instead would reject two
-            // adjacent labels alternating in frame as false duplicates.
-            const lastSeenForCode = this.scannedCodeTimes.get(text) ?? 0;
-            const sinceLastSeen = now - lastSeenForCode;
-
-            if (this.scannedCodes.has(text)) {
-                this.scannedCodeTimes.set(text, now);
-                this.lastScannedAt = now;
-
-                if (sinceLastSeen < this.duplicateWindow) return;
-
-                this.lastScannedCode = text;
-                this.closeWithError(text, '{{ __('filament-qr-scanner::scanner.duplicate_local') }}');
+            if (action === 'reject') {
+                this.lastScannedCode = code;
+                this.closeWithError(code, '{{ __('filament-qr-scanner::scanner.duplicate_local') }}');
                 return;
             }
 
-            this.scannedCodes.add(text);
-            this.scannedCodeTimes.set(text, now);
-            this.lastScannedCode = text;
-            this.lastScannedAt = now;
-            this.scanCount++;
+            this.lastScannedCode = code;
+            this.scanCount = this.session().count;
             this.flashOk();
             if (this.soundOn) this.beep();
 
-            $wire.set('{{ $wireModel }}', text);
+            $wire.set('{{ $wireModel }}', code);
             $wire.call('{{ $wireAction }}'@if($callArgs !== []), ...{{ Js::from($callArgs) }}@endif);
 
             @if($closeOnScan)
@@ -283,7 +272,7 @@
             if (!detail || !detail.qrCode) return;
             // Remember the code locally so the operator cannot bypass a
             // server-side rejection by scanning it again.
-            this.scannedCodes.add(detail.qrCode);
+            this.session().remember(detail.qrCode);
             if (this.active) {
                 this.wasOpenWhenRejected = true;
                 this.stopScanning();
@@ -294,12 +283,7 @@
         resumeAfterRejection() {
             if (!this.wasOpenWhenRejected) return;
             this.wasOpenWhenRejected = false;
-            // Refresh every per-code timestamp so codes seen before the
-            // rejection count as 'still in frame' the moment the camera
-            // reopens. Otherwise the gap between rejection -> acknowledge ->
-            // reopen exceeds the window and fires a duplicate error at once.
-            const now = Date.now();
-            this.scannedCodes.forEach(c => this.scannedCodeTimes.set(c, now));
+            this.session().refresh(Date.now());
             this.openScannerModal();
         },
 
@@ -308,11 +292,9 @@
             // new inspection). Old codes are no longer relevant, so clear the
             // dedup memory and let the operator scan pieces that were valid
             // somewhere else.
-            this.scannedCodes.clear();
-            this.scannedCodeTimes.clear();
+            this.session().reset();
             this.scanCount = 0;
             this.lastScannedCode = '';
-            this.lastScannedAt = 0;
             this.wasOpenWhenRejected = false;
         }
     }"

@@ -33,3 +33,14 @@ it('ships a config file with the documented defaults', function () {
     expect(config('filament-qr-scanner.scanner.qrbox'))->toBe(250);
     expect(config('filament-qr-scanner.photos.disk'))->toBe('public');
 });
+
+it('exposes a plugin that hooks nothing by itself', function () {
+    // The components are Blade-level, so the plugin exists to make the panel
+    // report the package as installed. Both hooks are intentionally inert.
+    $plugin = QrScannerPlugin::make();
+    $panel = filament()->getPanel('testing');
+
+    expect($plugin->getId())->toBe('qr-scanner');
+    expect($plugin->register($panel))->toBeNull();
+    expect($plugin->boot($panel))->toBeNull();
+});

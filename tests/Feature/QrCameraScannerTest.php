@@ -21,18 +21,39 @@ it('wires the whole page-level rejection protocol', function () {
         ->toContain('resumeAfterRejection');
 });
 
-it('tracks the last-seen time per code, not just the last code', function () {
-    // Two labels alternating in the camera frame must not read as duplicates.
+it('delegates every dedup decision to the scan session module', function () {
+    // The state machine itself is covered by tests/js/scan-session.test.js;
+    // what has to hold here is that the component loads it and routes the
+    // three outcomes through it.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('scan-session')
+        ->toContain('new EmuniqScanSession({ duplicateWindow: 1500 })')
+        ->toContain("this.session().evaluate(text, Date.now())")
+        ->toContain('this.session().remember(')
+        ->toContain('this.session().refresh(')
+        ->toContain('this.session().reset()');
+});
+
+it('passes the configured duplicate window to the session', function () {
+    config()->set('filament-qr-scanner.scanner.duplicate_window', 4000);
+
     expect(Blade::render('<x-qr-camera-scanner />'))
-        ->toContain('scannedCodeTimes')
-        ->toContain('duplicateWindow');
+        ->toContain('new EmuniqScanSession({ duplicateWindow: 4000 })');
+});
+
+it('loads both browser scripts on demand', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('html5-qrcode')
+        ->toContain('scan-session');
 });
 
 it('binds the given livewire property and action', function () {
     $html = Blade::render('<x-qr-camera-scanner wire-model="badgeCode" wire-action="loginWithBadge" />');
 
     expect($html)
-        ->toContain("\$wire.set('badgeCode', text)")
+        ->toContain("\$wire.set('badgeCode', code)")
         ->toContain("\$wire.call('loginWithBadge')");
 });
 

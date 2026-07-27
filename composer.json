@@ -57,5 +57,11 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "scripts": {
+        "test": "pest",
+        "test:coverage": "pest --coverage --min=100",
+        "test:js": "node --test tests/js/",
+        "test:js:coverage": "node --experimental-test-coverage --test tests/js/"
+    }
 }

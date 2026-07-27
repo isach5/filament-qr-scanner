@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.2.0 — 2026-07-27
+
+### Changed
+
+- The scanner's decision layer moved out of the inline `x-data` blob into
+  `resources/dist/scan-session.js`, loaded on demand next to html5-qrcode.
+  Deciding whether a decoded code is a new read, the same code still in frame,
+  or a deliberate re-scan is where both duplicate-detection bugs came from; as
+  a plain module apart from Alpine and the DOM it can be tested directly. The
+  Blade component now only carries out what it decides. Behaviour is unchanged.
+
+### Added
+
+- 20 tests for the scan session (`npm test`, no dependencies — `node --test`),
+  at 100% line, branch and function coverage. They pin the things that broke
+  before: two labels alternating in frame, a code held in front of the lens for
+  a minute, reopening after a rejection without firing a second one.
+- Coverage of the PHP side taken to 100%, with the paths that had none: aliases
+  disabled through config, a `components` config that is not a list, blank
+  entries in a symbology list.
+- `composer test` / `composer test:coverage` (gated at 100%) and
+  `npm run test` / `npm run test:js:coverage`.
+- `<source>` in `phpunit.xml`, without which `pest --coverage` cannot collect.
+
 ## v1.1.0 — 2026-07-27
 
 ### Added

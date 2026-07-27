@@ -37,6 +37,8 @@ class QrScannerServiceProvider extends ServiceProvider
             // first time an operator opens the camera.
             Js::make('html5-qrcode', __DIR__ . '/../resources/dist/html5-qrcode.min.js')
                 ->loadedOnRequest(),
+            Js::make('scan-session', __DIR__ . '/../resources/dist/scan-session.js')
+                ->loadedOnRequest(),
         ], 'emuniq/filament-qr-scanner');
 
         $this->registerBladeComponents();
