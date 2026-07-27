@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.11.2 — 2026-07-27
+
+### Added
+
+- The README now states the rule behind the iOS camera prompt, quoted from a
+  WebKit engineer: while capture is ongoing the grant lasts 24 hours; once
+  capture stops it expires after a minute of inactivity. It explains why the
+  grant has nothing to do with which lens is selected, and why parking the
+  camera rather than releasing it widens the prompt-free window.
+
 ## v1.11.1 — 2026-07-27
 
 ### Added

@@ -269,7 +269,15 @@ Everything below came out of a real shop floor, on real phones. Each one is eith
 
 **Handled as far as code can.** Opening makes exactly one `getUserMedia` call, and it never asks for a specific `deviceId` — that constraint fails the moment a remembered id goes stale, which Safari guarantees by reissuing them every session, and a failed request is a wasted prompt. Closing the modal parks the camera instead of releasing it, so reopening costs nothing at all.
 
-**What no code can do:** Safari grants camera access for the page session, and a reload is a new session. There is no web API to request a persistent grant, and `navigator.permissions.query({ name: 'camera' })` is not even supported there, so the state cannot be read either.
+**The actual rule**, as stated by a WebKit engineer on [bug 215884](https://bugs.webkit.org/show_bug.cgi?id=215884):
+
+> If capture is ongoing, prompt should not happen again until 24 hours. If capture is not ongoing, prompt should happen again after 1 minute of inactivity.
+
+So the grant is not tied to the camera, or to which lens you pick — it is per origin, and it is on a timer. While a stream is live you have 24 hours. The moment capture stops, a one-minute clock starts, and after that the next request prompts again. A reload destroys the stream, so a reload always lands you in the second branch.
+
+That is why parking the camera instead of releasing it matters for more than the current page: it keeps capture ongoing, which keeps you in the 24-hour branch. Raising `scanner.keep_alive` widens the prompt-free window at the cost of the recording indicator staying on longer.
+
+**What no code can do:** nothing survives the page context being destroyed. There is no web API to request a persistent grant, and `navigator.permissions.query({ name: 'camera' })` is not even supported in Safari, so the state cannot be read either.
 
 **What actually stops the asking**, both one-time per device:
 
