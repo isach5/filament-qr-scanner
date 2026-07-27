@@ -527,3 +527,29 @@ it('draws the guide corners with widths that survive the shorthand', function ()
         expect($corner)->toContain('3px');
     }
 });
+
+it('waits for the viewfinder to lay out instead of a fixed delay', function () {
+    // The flat 200ms wait was most of the time between the tap and the camera
+    // appearing; a modal is usually laid out within one frame.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('viewfinderReady')
+        ->toContain('el.clientWidth > 0')
+        ->not->toContain('setTimeout(r, 200)');
+});
+
+it('does not restart the camera when the remembered lens is the one already running', function () {
+    // Restarting costs a second camera negotiation, which on a phone is the
+    // difference between a quick open and a visibly slow one.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('running.kind === wanted.kind');
+});
+
+it('says the camera is starting instead of showing a mute black box', function () {
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('x-show="active && ! videoReady"')
+        ->toContain(__('filament-qr-scanner::scanner.starting'));
+});

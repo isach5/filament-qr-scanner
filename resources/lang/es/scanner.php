@@ -3,6 +3,7 @@
 return [
     'button' => 'Escanear QR',
     'modal_heading' => 'Escanear Código QR',
+    'starting' => 'Iniciando cámara…',
     'close' => 'Cerrar',
     'camera' => 'Cámara',
     'camera_front' => 'Frontal',

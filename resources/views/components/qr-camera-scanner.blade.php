@@ -104,6 +104,7 @@
         soundOn: localStorage.getItem('qr-scanner-sound') !== '0',
         wasOpenWhenRejected: false,
         paused: false,
+        videoReady: false,
         keepAliveMs: {{ (int) $keepAlive * 1000 }},
         _releaseTimer: null,
         formats: {{ Js::from($formats) }},
@@ -146,7 +147,7 @@
             $dispatch('open-modal', { id: '{{ $modalId }}' });
 
             await this.$nextTick();
-            await new Promise(r => setTimeout(r, 200));
+            await this.viewfinderReady();
 
             clearTimeout(this._releaseTimer);
 
@@ -162,6 +163,23 @@
             }
 
             await this.startCamera();
+        },
+
+        /**
+         * The library measures the reader element when it starts, so it has to
+         * be laid out first. This used to be a flat 200ms wait, which was most
+         * of the time between the tap and the camera appearing — on a phone the
+         * modal is usually laid out within one frame. Poll instead, with a cap
+         * so a modal that never lays out cannot hang the open.
+         */
+        async viewfinderReady(timeoutMs = 400) {
+            const el = document.getElementById('qr-reader-{{ $modalId }}');
+            const deadline = performance.now() + timeoutMs;
+
+            while (performance.now() < deadline) {
+                if (el && el.clientWidth > 0) return;
+                await new Promise(r => requestAnimationFrame(r));
+            }
         },
 
         describeCameraError(e) {
@@ -221,6 +239,7 @@
 
             // An empty list leaves the decoder on its default: try every
             // symbology on every frame.
+            this.videoReady = false;
             this.scanner = this.formats.length
                 ? new Html5Qrcode(readerId, { formatsToSupport: this.formats.map(name => Html5QrcodeSupportedFormats[name]) })
                 : new Html5Qrcode(readerId);
@@ -253,6 +272,7 @@
                 );
                 this.permissionState = 'granted';
                 this.paused = false;
+                this.videoReady = true;
                 this.readCameraCapabilities();
                 await this.loadCameraList();
 
@@ -273,8 +293,22 @@
             const remembered = localStorage.getItem('qr-camera-id');
 
             if (! remembered || remembered === this.cameraId) return;
-            if (! this.cameras.some(camera => camera.id === remembered)) {
+
+            const wanted = this.cameras.find(camera => camera.id === remembered);
+
+            if (! wanted) {
                 localStorage.removeItem('qr-camera-id');
+                return;
+            }
+
+            // Restarting costs a second camera negotiation, which on a phone is
+            // the difference between a quick open and a visibly slow one. The
+            // platform's rear camera is normally the very lens the operator
+            // picked, so only pay for it when the kind actually differs.
+            const running = this.cameras.find(camera => camera.id === this.cameraId);
+
+            if (running && running.kind === wanted.kind) {
+                this.cameraId = remembered;
                 return;
             }
 
@@ -430,6 +464,7 @@
             }
             this.scanner = null;
             this.active = false;
+            this.videoReady = false;
         },
 
         flashOk() {
@@ -599,6 +634,7 @@
                    browser ignores the requested aspect ratio. Ours replaces it. */
                 #qr-reader-{{ $modalId }} #qr-shaded-region { display: none !important; }
                 #qr-reader-{{ $modalId }} video { display: block; max-width: 100%; }
+                @keyframes spin { to { transform: rotate(360deg); } }
             </style>
 
             {{-- Viewfinder. max-width plus overflow hidden are a hard stop: the
@@ -632,6 +668,18 @@
                              would render as nothing at all. --}}
                         <span style="position:absolute;width:14%;height:14%;border-color:#fff;border-style:solid;border-width:0;{{ $corner }}"></span>
                     @endforeach
+                </div>
+
+                <div
+                    x-show="active && ! videoReady"
+                    x-cloak
+                    style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:.5rem;color:rgba(255,255,255,.85);font-size:.8125rem"
+                >
+                    <svg style="width:1.125rem;height:1.125rem;animation:spin 1s linear infinite" fill="none" viewBox="0 0 24 24">
+                        <circle style="opacity:.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path style="opacity:.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span>{{ __('filament-qr-scanner::scanner.starting') }}</span>
                 </div>
 
                 <div

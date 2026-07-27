@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.12.0 — 2026-07-27
+
+### Fixed
+
+- **Opening the camera was slower than it needed to be.** A flat 200 ms wait
+  sat between the tap and the camera request, to let the modal lay out before
+  the library measures the viewfinder — but a modal is normally laid out within
+  one frame. It polls for the layout now, capped so it can never hang.
+  Measured on an emulated iPhone: `getUserMedia` fires at ~15 ms instead of
+  ~205 ms, and the picture is live in ~130–210 ms instead of ~370–480 ms.
+- A remembered camera used to force a second camera negotiation on every open,
+  even when the platform had already handed over that very lens. The restart
+  only happens when the kind actually differs.
+
+### Added
+
+- The viewfinder says it is starting instead of being a mute black box. The
+  modal now appears instantly rather than after the camera is negotiated, so
+  the wait moved to where the operator can see it — and an unexplained black
+  square reads as slower than the same wait with a reason attached.
+
 ## v1.11.2 — 2026-07-27
 
 ### Added
