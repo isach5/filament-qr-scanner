@@ -3,23 +3,44 @@
 @props([
     'wireModel' => 'scanInput',
     'wireAction' => 'processScan',
+    'wireActionArgs' => null,
     'buttonLabel' => null,
     'buttonColor' => 'primary',
     'buttonSize' => 'lg',
     'modalHeading' => null,
-    'fps' => 10,
-    'qrboxSize' => 250,
+    'fps' => null,
+    'qrboxSize' => null,
+    'closeOnScan' => false,
 ])
 
 @php
+    use Filament\Support\Facades\FilamentAsset;
+    use Illuminate\Support\Js;
+
     $modalId = 'qr-scanner-modal-' . uniqid();
     $buttonLabel = $buttonLabel ?? __('filament-qr-scanner::scanner.button');
     $modalHeading = $modalHeading ?? __('filament-qr-scanner::scanner.modal_heading');
+    $fps = $fps ?? config('filament-qr-scanner.scanner.fps', 10);
+    $qrboxSize = $qrboxSize ?? config('filament-qr-scanner.scanner.qrbox', 250);
+    $duplicateWindow = config('filament-qr-scanner.scanner.duplicate_window', 1500);
+
+    $scriptUrl = config('filament-qr-scanner.scanner.script_url')
+        ?: FilamentAsset::getScriptSrc('html5-qrcode', 'emuniq/filament-qr-scanner');
+
+    // Normalised to an array so a single scalar and a list of arguments both
+    // spread cleanly into $wire.call().
+    $callArgs = $wireActionArgs === null
+        ? []
+        : (is_array($wireActionArgs) ? array_values($wireActionArgs) : [$wireActionArgs]);
 @endphp
 
 <div
-    x-load-js="['https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js']"
+    wire:ignore
+    x-load-js="{{ Js::from([$scriptUrl]) }}"
     x-on:close-modal.window="if ($event.detail?.id === '{{ $modalId }}') stopScanning()"
+    x-on:scan-rejected.window="handleRejection($event.detail)"
+    x-on:scanner-reset.window="resetSession()"
+    x-on:scan-resume.window="resumeAfterRejection()"
     x-data="{
         scanner: null,
         cameras: [],
@@ -28,6 +49,15 @@
         permissionState: 'prompt',
         loading: false,
         active: false,
+        lastScannedCode: '',
+        lastScannedAt: 0,
+        scanCount: 0,
+        flashing: false,
+        soundOn: localStorage.getItem('qr-scanner-sound') !== '0',
+        scannedCodes: new Set(),
+        scannedCodeTimes: new Map(),
+        wasOpenWhenRejected: false,
+        duplicateWindow: {{ (int) $duplicateWindow }},
 
         friendlyName(cam, index) {
             const label = (cam.label || '').trim();
@@ -134,13 +164,8 @@
             try {
                 await this.scanner.start(
                     this.cameraId,
-                    { fps: {{ $fps }}, qrbox: { width: {{ $qrboxSize }}, height: {{ $qrboxSize }} }, aspectRatio: 1.0 },
-                    (text) => {
-                        $wire.set('{{ $wireModel }}', text);
-                        $wire.call('{{ $wireAction }}');
-                        this.stopScanning();
-                        $dispatch('close-modal', { id: '{{ $modalId }}' });
-                    },
+                    { fps: {{ (int) $fps }}, qrbox: { width: {{ (int) $qrboxSize }}, height: {{ (int) $qrboxSize }} }, aspectRatio: 1.0 },
+                    (text) => this.onDetected(text),
                     () => {}
                 );
                 localStorage.setItem('qr-camera-id', this.cameraId);
@@ -148,6 +173,51 @@
                 this.error = '{{ __('filament-qr-scanner::scanner.error_start') }} ' + (e.message || e);
                 this.active = false;
             }
+        },
+
+        onDetected(text) {
+            text = String(text).trim();
+            if (!text) return;
+
+            const now = Date.now();
+            if (this.lastScannedAt && (now - this.lastScannedAt) < 400) return;
+
+            // Per-code sliding window. While a code stays in the camera frame
+            // html5-qrcode fires ~fps times a second and each fire refreshes
+            // that code's timestamp, so only a real GAP (operator moved the
+            // camera away and came back) counts as a deliberate re-scan.
+            // Tracking a single lastScannedCode instead would reject two
+            // adjacent labels alternating in frame as false duplicates.
+            const lastSeenForCode = this.scannedCodeTimes.get(text) ?? 0;
+            const sinceLastSeen = now - lastSeenForCode;
+
+            if (this.scannedCodes.has(text)) {
+                this.scannedCodeTimes.set(text, now);
+                this.lastScannedAt = now;
+
+                if (sinceLastSeen < this.duplicateWindow) return;
+
+                this.lastScannedCode = text;
+                this.closeWithError(text, '{{ __('filament-qr-scanner::scanner.duplicate_local') }}');
+                return;
+            }
+
+            this.scannedCodes.add(text);
+            this.scannedCodeTimes.set(text, now);
+            this.lastScannedCode = text;
+            this.lastScannedAt = now;
+            this.scanCount++;
+            this.flashOk();
+            if (this.soundOn) this.beep();
+
+            $wire.set('{{ $wireModel }}', text);
+            $wire.call('{{ $wireAction }}'@if($callArgs !== []), ...{{ Js::from($callArgs) }}@endif);
+
+            @if($closeOnScan)
+                // Single-shot / lookup mode: close after each scan.
+                this.stopScanning();
+                this.$dispatch('close-modal', { id: '{{ $modalId }}' });
+            @endif
         },
 
         async switchCamera(newId) {
@@ -162,6 +232,78 @@
             }
             this.scanner = null;
             this.active = false;
+        },
+
+        flashOk() {
+            this.flashing = true;
+            setTimeout(() => { this.flashing = false; }, 350);
+        },
+
+        beep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.frequency.value = 880;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+                osc.connect(gain).connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.15);
+            } catch (e) {}
+        },
+
+        toggleSound() {
+            this.soundOn = !this.soundOn;
+            localStorage.setItem('qr-scanner-sound', this.soundOn ? '1' : '0');
+        },
+
+        closeWithError(qrCode, message) {
+            // Client-side rejection (duplicate within the session): the server
+            // was never called, so fire scan-rejected ourselves and let the
+            // page-level overlay show the error.
+            this.wasOpenWhenRejected = true;
+            this.stopScanning();
+            this.$dispatch('close-modal', { id: '{{ $modalId }}' });
+            this.$dispatch('scan-rejected', { message, qrCode });
+        },
+
+        handleRejection(detail) {
+            if (!detail || !detail.qrCode) return;
+            // Remember the code locally so the operator cannot bypass a
+            // server-side rejection by scanning it again.
+            this.scannedCodes.add(detail.qrCode);
+            if (this.active) {
+                this.wasOpenWhenRejected = true;
+                this.stopScanning();
+                this.$dispatch('close-modal', { id: '{{ $modalId }}' });
+            }
+        },
+
+        resumeAfterRejection() {
+            if (!this.wasOpenWhenRejected) return;
+            this.wasOpenWhenRejected = false;
+            // Refresh every per-code timestamp so codes seen before the
+            // rejection count as 'still in frame' the moment the camera
+            // reopens. Otherwise the gap between rejection -> acknowledge ->
+            // reopen exceeds the window and fires a duplicate error at once.
+            const now = Date.now();
+            this.scannedCodes.forEach(c => this.scannedCodeTimes.set(c, now));
+            this.openScannerModal();
+        },
+
+        resetSession() {
+            // Called when the operating context changes (a station switch, a
+            // new inspection). Old codes are no longer relevant, so clear the
+            // dedup memory and let the operator scan pieces that were valid
+            // somewhere else.
+            this.scannedCodes.clear();
+            this.scannedCodeTimes.clear();
+            this.scanCount = 0;
+            this.lastScannedCode = '';
+            this.lastScannedAt = 0;
+            this.wasOpenWhenRejected = false;
         }
     }"
     {{ $attributes->merge(['class' => 'space-y-3']) }}
@@ -235,14 +377,54 @@
                 </template>
             </div>
 
-            {{-- Scanner viewport --}}
-            <div id="qr-reader-{{ $modalId }}" class="rounded-lg overflow-hidden bg-black" style="width: 100%; min-height: 300px;"></div>
+            {{-- Scanner viewport with flash overlay --}}
+            <div class="relative rounded-lg overflow-hidden bg-black" style="width: 100%; min-height: 300px;">
+                <div id="qr-reader-{{ $modalId }}" style="width: 100%; min-height: 300px;"></div>
+                <div
+                    x-show="flashing"
+                    x-cloak
+                    class="absolute inset-0 pointer-events-none bg-green-400/60 transition-opacity duration-300"
+                ></div>
+            </div>
+
+            {{-- Last scan banner --}}
+            <div
+                x-show="lastScannedCode"
+                x-cloak
+                class="flex items-center justify-between gap-3 p-3 rounded-lg bg-green-100 text-green-900 dark:bg-green-900/50 dark:text-green-100 text-sm"
+            >
+                <div class="flex items-center gap-2 min-w-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    <div class="min-w-0">
+                        <p class="text-xs uppercase tracking-wide opacity-75">{{ __('filament-qr-scanner::scanner.last_scan') }}</p>
+                        <p class="font-mono truncate" x-text="lastScannedCode"></p>
+                    </div>
+                </div>
+                <span class="shrink-0 px-2 py-1 rounded-full bg-green-200 dark:bg-green-800 text-xs font-semibold" x-text="scanCount + (scanCount === 1 ? ' {{ __('filament-qr-scanner::scanner.reading_singular') }}' : ' {{ __('filament-qr-scanner::scanner.reading_plural') }}')"></span>
+            </div>
+
+            {{-- Hint --}}
+            <p x-show="!lastScannedCode" x-cloak class="text-xs text-gray-500 dark:text-gray-400 text-center">
+                {{ __('filament-qr-scanner::scanner.continuous_hint') }}
+            </p>
 
             {{-- Error inside modal --}}
             <div x-show="error" x-cloak class="p-3 rounded-lg bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 text-sm" x-text="error"></div>
         </div>
 
         <x-slot name="footerActions">
+            <span x-show="soundOn">
+                <x-filament::button color="gray" icon="heroicon-o-speaker-wave" @click="toggleSound()">
+                    {{ __('filament-qr-scanner::scanner.sound_on') }}
+                </x-filament::button>
+            </span>
+            <span x-show="!soundOn" x-cloak>
+                <x-filament::button color="gray" icon="heroicon-o-speaker-x-mark" @click="toggleSound()">
+                    {{ __('filament-qr-scanner::scanner.sound_off') }}
+                </x-filament::button>
+            </span>
             <x-filament::button color="danger" @click="stopScanning(); $dispatch('close-modal', { id: '{{ $modalId }}' })">
                 {{ __('filament-qr-scanner::scanner.close') }}
             </x-filament::button>

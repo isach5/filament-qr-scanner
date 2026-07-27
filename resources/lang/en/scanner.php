@@ -7,6 +7,16 @@ return [
     'camera' => 'Camera',
     'camera_front' => 'Front',
     'camera_back' => 'Back',
+    'sound_on' => 'Sound',
+    'sound_off' => 'Muted',
+    'last_scan' => 'Last scan',
+    'reading_singular' => 'read',
+    'reading_plural' => 'reads',
+    'continuous_hint' => 'Point the camera at the QR code. You can scan several codes in a row without closing this window.',
+    'rejected_title' => 'Scan rejected',
+    'rejected_generic' => 'Scan rejected.',
+    'duplicate_local' => 'This QR was already scanned in this session.',
+    'acknowledge' => 'Acknowledge',
 
     // Errors
     'error_no_support' => 'Your browser does not support camera access. Use an updated version of Chrome, Safari, or Firefox.',

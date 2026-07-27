@@ -1,0 +1,13 @@
+This package bundles a compiled copy of html5-qrcode:
+
+    resources/dist/html5-qrcode.min.js
+    html5-qrcode 2.3.8 — https://github.com/mebjas/html5-qrcode
+    Copyright (c) 2021 minhaz
+    Licensed under the Apache License, Version 2.0
+    https://www.apache.org/licenses/LICENSE-2.0
+
+The file is shipped unmodified so panels keep working on shop floors without
+reliable internet. Point `filament-qr-scanner.scanner.script_url` at a CDN if
+you would rather load it from the network.
+
+Everything else in this package is MIT licensed — see LICENSE.

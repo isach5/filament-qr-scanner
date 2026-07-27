@@ -1,20 +1,38 @@
 {
     "name": "emuniq/filament-qr-scanner",
-    "description": "A Filament v3 & v4 plugin for HTML5 QR/barcode camera scanning with multi-camera support, permission handling, and Livewire integration.",
+    "description": "Camera components for Filament: QR/barcode scanning and base64 photo capture, drop-in anywhere Blade renders — pages, resources, relation managers and modals.",
     "license": "MIT",
     "keywords": [
         "filament",
+        "filamentphp",
         "laravel",
+        "livewire",
         "qr",
         "barcode",
         "scanner",
         "camera",
-        "html5-qrcode",
-        "livewire"
+        "photo-capture",
+        "html5-qrcode"
     ],
+    "authors": [
+        {
+            "name": "Israel Hussny",
+            "email": "ihussny@gmail.com",
+            "role": "Creator"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/isach5/filament-qr-scanner/issues",
+        "source": "https://github.com/isach5/filament-qr-scanner"
+    },
     "autoload": {
         "psr-4": {
             "Emuniq\\FilamentQrScanner\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Emuniq\\FilamentQrScanner\\Tests\\": "tests/"
         }
     },
     "extra": {
@@ -25,6 +43,19 @@
         }
     },
     "require": {
-        "filament/filament": "^3.0|^4.0"
-    }
+        "php": "^8.2",
+        "filament/filament": "^4.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }

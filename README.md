@@ -1,24 +1,11 @@
 # Filament QR Scanner
 
-A Filament v3 & v4 plugin for HTML5 QR/barcode camera scanning. Opens a Filament modal with live camera feed, supports multi-camera switching, handles permissions gracefully, and integrates directly with Livewire.
+Camera components for Filament v4. Two Blade components you can drop anywhere Blade renders — a custom page, a resource form, a relation manager, the body of an Action modal:
 
-## Features
+- **`<x-qr-camera-scanner>`** — live camera QR/barcode scanning, wired straight into a Livewire property and action.
+- **`<x-photo-camera-capture>`** — take a photo, downscale it in the browser, hand the server a base64 data URL.
 
-- **Zero configuration** - works out of the box
-- **Multi-camera support** - switch between front/back cameras
-- **Permission handling** - friendly help messages when camera is denied
-- **Livewire integration** - scanned value sent directly to your component
-- **Filament native** - uses Filament modals, buttons, and styling
-- **Dark mode** support
-- **Localized** - English and Spanish included, easily extendable
-- **Mobile ready** - iOS Safari, Android Chrome, desktop browsers
-- **Camera persistence** - remembers last selected camera via localStorage
-
-## Requirements
-
-- PHP 8.1+
-- Laravel 10.0+
-- Filament 3.0+ or 4.0+
+Built for shop-floor use: multi-camera switching, permission handling with per-browser instructions, audible feedback, offline-safe assets, and a duplicate-scan protocol that survives an operator holding a code in front of the lens.
 
 ## Installation
 
@@ -26,87 +13,196 @@ A Filament v3 & v4 plugin for HTML5 QR/barcode camera scanning. Opens a Filament
 composer require emuniq/filament-qr-scanner
 ```
 
-That's it! The plugin auto-registers to all Filament panels.
+That is the whole setup. The plugin registers itself on every Filament panel and publishes the scanner library to `public/js` on the next `composer install`/`update` (through Filament's `filament:upgrade` hook). If your app does not run that hook:
 
-## Usage
-
-### Basic
-
-Add the component to any Livewire/Filament page:
-
-```blade
-<x-qr-camera-scanner />
+```bash
+php artisan filament:assets
 ```
 
-Then in your Livewire component:
+Requires PHP 8.2+, Laravel 11/12 and Filament v4.
+
+## QR / barcode scanner
+
+```blade
+<x-qr-camera-scanner wire-model="scanInput" wire-action="processScan" />
+```
 
 ```php
 public string $scanInput = '';
 
 public function processScan(): void
 {
-    $qr = trim($this->scanInput);
+    $code = $this->scanInput;
     $this->scanInput = '';
 
-    // Do something with $qr...
+    // ... your logic
 }
 ```
 
-### Custom Props
+The operator taps the button, grants camera permission once, and every decoded code lands in `$scanInput` before `processScan()` runs. The modal stays open so codes can be scanned back to back.
+
+### Props
+
+| Prop | Default | Purpose |
+| --- | --- | --- |
+| `wire-model` | `scanInput` | Livewire property that receives the decoded text |
+| `wire-action` | `processScan` | Livewire method called after each scan |
+| `wire-action-args` | `null` | Scalar or array spread into the call as arguments |
+| `close-on-scan` | `false` | Close the modal after each scan (lookup mode) |
+| `button-label` | translated | Text on the open-camera button |
+| `button-color` / `button-size` | `primary` / `lg` | Filament button styling |
+| `modal-heading` | translated | Heading of the scanner modal |
+| `fps` / `qrbox-size` | from config | Decoder tuning |
+
+Extra attributes (`class`, `id`, …) are merged onto the wrapper.
+
+### Duplicate handling
+
+While a code sits in the camera frame the decoder fires ~10 times a second. The component tracks a last-seen timestamp **per code**, so:
+
+- The same code still in frame is silently ignored.
+- A code re-presented after a real gap (default 1500 ms, configurable) is rejected as a deliberate re-scan.
+- Two codes alternating in frame — adjacent labels on a board — are not mistaken for duplicates.
+
+### Page-level events
+
+The component talks to the hosting page over window events, so the page can own the error UI:
+
+| Event | Direction | Meaning |
+| --- | --- | --- |
+| `scan-rejected` | both ways | A scan was refused. The component fires it for client-side duplicates; your page fires it (`$this->dispatch('scan-rejected', message: ..., qrCode: ...)`) after a server-side check fails. Either way the camera closes and the code is remembered. |
+| `scan-resume` | page → component | Reopen the camera after the operator acknowledged a rejection. Only reopens if the camera was open when the rejection landed. |
+| `scanner-reset` | page → component | Clear the scanned-code memory. Dispatch it when the working context changes — a different station, a new inspection — so codes that were valid elsewhere can be scanned again. |
 
 ```blade
-<x-qr-camera-scanner
-    wire-model="myProperty"
-    wire-action="myMethod"
-    button-label="Scan Product"
-    button-color="success"
-    button-size="md"
-    modal-heading="Scan Product QR"
-    :fps="15"
-    :qrbox-size="300"
-/>
+<div
+    x-data="{ blocked: false, message: '' }"
+    x-on:scan-rejected.window="blocked = true; message = $event.detail?.message"
+>
+    <x-qr-camera-scanner wire-model="scanInput" wire-action="processScan" />
+
+    <div x-show="blocked" x-cloak>
+        <p x-text="message"></p>
+        <button x-on:click="blocked = false; $dispatch('scan-resume')">Got it</button>
+    </div>
+</div>
 ```
 
-### Available Props
+## Photo capture
 
-| Prop | Default | Description |
-|------|---------|-------------|
-| `wire-model` | `scanInput` | Livewire property to receive scanned value |
-| `wire-action` | `processScan` | Livewire method called after scan |
-| `button-label` | `Scan QR` | Button text (auto-translated) |
-| `button-color` | `primary` | Filament button color |
-| `button-size` | `lg` | Filament button size |
-| `modal-heading` | `Scan QR Code` | Modal title (auto-translated) |
-| `fps` | `10` | Scanner frames per second |
-| `qrbox-size` | `250` | QR scanning area in pixels |
+```blade
+<x-photo-camera-capture wire-model="damagePhotoUpload" />
+```
+
+```php
+use Emuniq\FilamentQrScanner\Concerns\HasBase64PhotoCapture;
+
+class InspectionPage extends Page
+{
+    use HasBase64PhotoCapture;
+
+    public ?string $damagePhotoUpload = null;
+
+    public function save(): void
+    {
+        $path = $this->saveBase64Photo($this->damagePhotoUpload, 'damage-photos');
+    }
+}
+```
+
+The frame is captured to a canvas, downscaled past `max-dimension`, encoded as a JPEG data URL and written to the Livewire property **without** a roundtrip — an immediate sync would re-render the surrounding Action modal and wipe text the operator had already typed. `saveBase64Photo()` decodes it and stores it on the configured disk, returning the stored path, or `null` when the value is empty or malformed.
+
+| Prop | Default | Purpose |
+| --- | --- | --- |
+| `wire-model` | `photoUpload` | Livewire property that receives the data URL |
+| `button-label` | translated | Text on the open-camera button |
+| `button-color` / `button-size` | `primary` / `lg` | Filament button styling |
+| `modal-heading` | translated | Heading of the capture modal |
+| `jpeg-quality` / `max-dimension` | from config | Encoding and downscaling |
+
+Override `writeBase64Photo()` when storing needs to do more than one `put()` — staging the file locally and shipping it to remote storage from a queued job, say:
+
+```php
+protected function writeBase64Photo(string $path, string $binary, string $disk): void
+{
+    Storage::disk('local')->put($path, $binary);
+    UploadStagedPhotoJob::dispatch($path, $disk);
+}
+```
+
+## Configuration
+
+```bash
+php artisan vendor:publish --tag=filament-qr-scanner-config
+```
+
+```php
+return [
+    'auto_register_panels' => true,
+
+    'components' => [
+        'qr-camera-scanner' => 'qr-camera-scanner',
+        'photo-camera-capture' => 'photo-camera-capture',
+    ],
+
+    'scanner' => [
+        'script_url' => null,      // null = the bundled copy
+        'fps' => 10,
+        'qrbox' => 250,
+        'duplicate_window' => 1500,
+    ],
+
+    'photos' => [
+        'disk' => 'public',
+        'jpeg_quality' => 0.8,
+        'max_dimension' => 1280,
+    ],
+];
+```
+
+**Aliases never shadow your app.** If your app already ships `resources/views/components/qr-camera-scanner.blade.php`, the plugin leaves that name alone — a Blade alias silently outranks an anonymous component, and finding that out the hard way costs an afternoon. Set an alias to `null` to skip it, or reach the component through its namespace, which always works:
+
+```blade
+<x-filament-qr-scanner::qr-camera-scanner />
+```
+
+Set `auto_register_panels` to `false` to register the plugin only where you want it:
+
+```php
+use Emuniq\FilamentQrScanner\QrScannerPlugin;
+
+$panel->plugin(QrScannerPlugin::make());
+```
+
+## Offline
+
+`html5-qrcode` ships inside the package and is served from your own domain, lazily, the first time an operator opens the camera. No CDN request, no dead camera when the shop floor's internet drops. Point `scanner.script_url` at a CDN if you prefer that.
 
 ## Translations
 
-English and Spanish are included. To add your own:
+English and Spanish included.
 
 ```bash
 php artisan vendor:publish --tag=filament-qr-scanner-translations
 ```
 
-Then edit `lang/vendor/filament-qr-scanner/{locale}/scanner.php`.
+Strings live in `lang/vendor/filament-qr-scanner/{locale}/{scanner,photo}.php`. Views can be published too, with `--tag=filament-qr-scanner-views`.
 
-## How It Works
+## Browser support
 
-1. User clicks the camera button
-2. Requests camera permission (with fallback constraints)
-3. Opens a Filament modal with live camera feed
-4. On successful scan, sets the Livewire property and calls the action
-5. Automatically stops camera and closes modal
+Chrome/Chromium (desktop and Android), Safari (iOS and macOS), Firefox, Edge. Camera access requires HTTPS (or `localhost`).
 
-Uses [html5-qrcode](https://github.com/mebjas/html5-qrcode) v2.3.8 loaded on demand via `x-load-js`.
+## Testing
 
-## Browser Support
+```bash
+composer install
+vendor/bin/pest
+```
 
-- Chrome/Chromium (Desktop & Android)
-- Safari (iOS & macOS)
-- Firefox
-- Edge
+## Credits
+
+Camera decoding by [html5-qrcode](https://github.com/mebjas/html5-qrcode) (Apache-2.0, bundled — see `NOTICE`).
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).
