@@ -322,18 +322,24 @@ it('closes with a neutral button, not a destructive one', function () {
     expect($m[0] ?? '')->not->toContain('danger');
 });
 
-it('asks the camera for a square frame by default', function () {
-    // Not cosmetic: letting the camera hand over its native landscape frame
-    // pushed the whole modal off the side of an iPhone, close button included.
-    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('aspectRatio: 1');
+it('takes the camera frame as it comes by default', function () {
+    // Forcing a shape makes the browser crop and scale to reach it: a 640x480
+    // sensor became 480x480 with resizeMode crop-and-scale, for less picture
+    // and a viewfinder 78px taller.
+    expect(Blade::render('<x-qr-camera-scanner />'))->not->toContain('aspectRatio:');
 });
 
-it('can be pointed at another aspect ratio, or none at all', function () {
+it('can still be pinned to a fixed aspect ratio', function () {
     config()->set('filament-qr-scanner.scanner.aspect_ratio', 1.777);
-    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('aspectRatio: 1.777');
 
-    config()->set('filament-qr-scanner.scanner.aspect_ratio', null);
-    expect(Blade::render('<x-qr-camera-scanner />'))->not->toContain('aspectRatio:');
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('aspectRatio: 1.777');
+});
+
+it('sizes the aiming guide from the short side of the feed', function () {
+    // The feed is normally landscape, so height is the side that has to hold
+    // the box — sizing from the width put its corners outside the picture.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('height:70%;width:auto;max-width:70%;aspect-ratio:1');
 });
 
 it('never lets the camera preview grow past the modal', function () {

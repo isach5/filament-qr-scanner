@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.13.0 — 2026-07-27
+
+### Changed
+
+- **The camera frame is taken as it comes.** `aspect_ratio` defaults to `null`
+  instead of `1.0`. Forcing a square made the browser crop and scale the sensor
+  to reach a shape it was not built for: measured on an emulated iPhone, a
+  640×480 sensor became 480×480 with `resizeMode: crop-and-scale` — a third of
+  the field of view thrown away, and a viewfinder 78 px taller for less
+  picture. On a phone that height is the scarcest thing in the dialog.
+  (The reason this was reverted in v1.4.0 turned out to be wrong: the modal
+  overflow it was blamed for came from the camera button row, fixed in v1.6.0.)
+- The aiming guide is sized from the **short** side of the feed rather than the
+  width, the same basis the scan window uses. On a landscape feed the width
+  version put its corners outside the picture.
+
 ## v1.12.0 — 2026-07-27
 
 ### Fixed

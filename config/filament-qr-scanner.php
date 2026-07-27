@@ -72,11 +72,13 @@ return [
     | rectangle the moment the rendered aspect differs from the requested one.
     | Set 'qrbox_ratio' to null to go back to the fixed 'qrbox' box.
     |
-    | 'aspect_ratio' forces the shape of the camera feed. The square default
-    | is what keeps the preview inside the modal on a phone: unsetting it
-    | (null) lets the camera hand over its native landscape frame, which is
-    | more scanning area but has been seen to overflow the modal on iOS
-    | Safari. Change it only with a real phone in your hand.
+    | 'aspect_ratio' forces the shape of the camera feed. Leave it null: the
+    | camera hands over its native frame, the browser does no cropping or
+    | scaling to reach a shape it was not built for, you get the full field of
+    | view, and the preview is shorter — which on a phone is the scarcest thing
+    | in the dialog. Measured: forcing a square turned a 640x480 sensor into
+    | 480x480 with resizeMode 'crop-and-scale' and made the viewfinder 78px
+    | taller for less picture. Set a number only if you need a fixed shape.
     |
     | 'keep_alive' is how many seconds the camera stays parked after the modal
     | closes. Reopening within that window resumes the same stream, so it costs
@@ -98,7 +100,7 @@ return [
         'fps' => 10,
         'qrbox' => 250,
         'qrbox_ratio' => 0.7,
-        'aspect_ratio' => 1.0,
+        'aspect_ratio' => null,
         'duplicate_window' => 1500,
         'formats' => null,
         'native_decoder' => true,

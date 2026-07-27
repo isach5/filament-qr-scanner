@@ -652,10 +652,15 @@
                      it got, so it comes out as a rectangle whenever the browser
                      ignores the requested aspect ratio — which Safari does. A
                      box with aspect-ratio:1 is square by construction, on every
-                     device, always. Theirs is hidden in the style block below. --}}
+                     device, always. Theirs is hidden in the style block below.
+
+                     Sized from the HEIGHT, not the width: the feed is normally
+                     landscape, so the short side is what has to hold the box —
+                     the same basis the qrbox uses. max-width covers a portrait
+                     feed, where the width becomes the short side. --}}
                 <div
                     aria-hidden="true"
-                    style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:{{ (int) round(($qrboxRatio ?? 0.7) * 100) }}%;max-width:{{ (int) round(($qrboxRatio ?? 0.7) * 100) }}%;aspect-ratio:1;pointer-events:none"
+                    style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);height:{{ (int) round(($qrboxRatio ?? 0.7) * 100) }}%;width:auto;max-width:{{ (int) round(($qrboxRatio ?? 0.7) * 100) }}%;aspect-ratio:1;pointer-events:none"
                 >
                     @foreach ([
                         'top:0;left:0;border-top-width:3px;border-left-width:3px',
