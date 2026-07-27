@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.5.0 — 2026-07-27
+
+### Fixed
+
+- **Opening the scanner asked for the camera three times.** It probed for
+  permission with one `getUserMedia`, enumerated cameras with a second, and
+  started the camera with a third. iOS Safari treats every one of them as a
+  reason to ask the operator again. There is now exactly one request — the one
+  that actually starts the camera — measured, not assumed.
+- A remembered camera that no longer exists used to fail the open every time.
+  It is forgotten on failure so the next attempt asks the platform for whatever
+  rear camera it has.
+
+### Changed
+
+- With no remembered camera the scanner starts from a `facingMode: environment`
+  constraint and lets the platform pick its default rear lens, then fills the
+  switcher from `enumerateDevices()` — which needs no stream of its own.
+- Camera errors are mapped to the translated explanations from a single place
+  regardless of which call failed.
+
 ## v1.4.0 — 2026-07-27
 
 ### Fixed

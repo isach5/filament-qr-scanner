@@ -317,3 +317,38 @@ it('refuses a nonsensical aspect ratio', function () {
     expect(fn () => Blade::render('<x-qr-camera-scanner :aspect-ratio="0" />'))
         ->toThrow(ViewException::class, 'aspect ratio must be greater than 0');
 });
+
+it('asks for the camera exactly once per open', function () {
+    // Probing for permission and then enumerating cameras meant three separate
+    // getUserMedia calls, and iOS Safari treats each one as a reason to ask the
+    // operator again. Only start() may request the camera now.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->not->toContain('requestPermission')
+        ->not->toContain('await Html5Qrcode.getCameras()')
+        ->toContain('navigator.mediaDevices.enumerateDevices()')
+        ->toContain("{ facingMode: 'environment' }");
+});
+
+it('falls back to the platform default when no camera is remembered', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain("const target = this.cameraId || { facingMode: 'environment' }");
+});
+
+it('forgets a remembered camera that no longer starts', function () {
+    // Otherwise a device id left over from another phone locks the operator out
+    // of the scanner for good.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain("localStorage.removeItem('qr-camera-id')");
+});
+
+it('maps camera failures to the translated explanations', function () {
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('describeCameraError')
+        ->toContain(__('filament-qr-scanner::scanner.error_denied'))
+        ->toContain(__('filament-qr-scanner::scanner.error_not_found'))
+        ->toContain(__('filament-qr-scanner::scanner.error_in_use'));
+});

@@ -133,68 +133,61 @@
                 return;
             }
 
-            let granted = await this.requestPermission({ video: { facingMode: 'environment' } });
-            if (!granted) {
-                granted = await this.requestPermission({ video: true });
-            }
-            if (!granted) {
-                this.loading = false;
-                return;
-            }
-
-            try {
-                const devices = await Html5Qrcode.getCameras();
-
-                if (devices.length === 0) {
-                    this.error = '{{ __('filament-qr-scanner::scanner.error_no_camera') }}';
-                    this.loading = false;
-                    return;
-                }
-
-                // Naming and choosing among the lenses of a modern phone is
-                // fiddly enough to live in EmuniqCameraPicker, tested on its
-                // own against the labels real devices report.
-                this.cameras = EmuniqCameraPicker.describe(devices, this.cameraNames);
-                this.cameraId = EmuniqCameraPicker.pickDefault(
-                    devices,
-                    localStorage.getItem('qr-camera-id'),
-                );
-            } catch (e) {
-                this.error = '{{ __('filament-qr-scanner::scanner.error_detecting') }} ' + (e.message || e);
-                this.loading = false;
-                return;
-            }
-
+            // One getUserMedia per open, and only the one that actually starts
+            // the camera. Probing for permission first and enumerating cameras
+            // second meant three separate requests, and iOS Safari treats every
+            // one of them as a reason to ask the operator again.
             this.loading = false;
             $dispatch('open-modal', { id: '{{ $modalId }}' });
 
             await this.$nextTick();
             await new Promise(r => setTimeout(r, 200));
-            this.startCamera();
+            await this.startCamera();
         },
 
-        async requestPermission(constraints) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                stream.getTracks().forEach(t => t.stop());
-                this.permissionState = 'granted';
-                return true;
-            } catch (e) {
-                const name = e.name || '';
-                if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-                    this.permissionState = 'denied';
-                    this.error = '{{ __('filament-qr-scanner::scanner.error_denied') }}';
-                } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-                    this.error = '{{ __('filament-qr-scanner::scanner.error_not_found') }}';
-                } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-                    this.error = '{{ __('filament-qr-scanner::scanner.error_in_use') }}';
-                } else if (name === 'OverconstrainedError') {
-                    return false;
-                } else {
-                    this.error = '{{ __('filament-qr-scanner::scanner.error_generic') }} ' + (e.message || e);
-                }
-                return false;
+        describeCameraError(e) {
+            const name = e?.name || '';
+
+            if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+                this.permissionState = 'denied';
+                return '{{ __('filament-qr-scanner::scanner.error_denied') }}';
             }
+            if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') {
+                return '{{ __('filament-qr-scanner::scanner.error_not_found') }}';
+            }
+            if (name === 'NotReadableError' || name === 'TrackStartError') {
+                return '{{ __('filament-qr-scanner::scanner.error_in_use') }}';
+            }
+
+            return '{{ __('filament-qr-scanner::scanner.error_start') }} ' + (e?.message || e);
+        },
+
+        /**
+         * Fill the camera switcher from the stream that is already running.
+         * enumerateDevices() only returns usable labels once permission has
+         * been granted, and unlike Html5Qrcode.getCameras() it does not open a
+         * second stream to get them.
+         */
+        async loadCameraList() {
+            try {
+                const devices = (await navigator.mediaDevices.enumerateDevices())
+                    .filter(d => d.kind === 'videoinput')
+                    .map(d => ({ id: d.deviceId, label: d.label }));
+
+                this.cameras = EmuniqCameraPicker.describe(devices, this.cameraNames);
+
+                if (!this.cameraId) {
+                    // Started from a facingMode constraint, so ask the running
+                    // track which device the browser actually handed us.
+                    let running = null;
+                    try {
+                        running = this.scanner.getRunningTrackSettings()?.deviceId ?? null;
+                    } catch (e) {}
+
+                    this.cameraId = running
+                        ?? EmuniqCameraPicker.pickDefault(devices, null);
+                }
+            } catch (e) {}
         },
 
         async startCamera() {
@@ -211,9 +204,16 @@
                 : new Html5Qrcode(readerId);
             this.active = true;
 
+            // A remembered device wins; otherwise ask for the rear camera by
+            // constraint and let the platform hand over its default lens. This
+            // is what keeps the whole open to a single permission request:
+            // there is no device list to fetch before we can start.
+            this.cameraId = this.cameraId || localStorage.getItem('qr-camera-id');
+            const target = this.cameraId || { facingMode: 'environment' };
+
             try {
                 await this.scanner.start(
-                    this.cameraId,
+                    target,
                     {
                         fps: {{ (int) $fps }},
                         qrbox: {!! $qrboxExpression !!},
@@ -228,11 +228,24 @@
                     (text) => this.onDetected(text),
                     () => {}
                 );
-                localStorage.setItem('qr-camera-id', this.cameraId);
+                this.permissionState = 'granted';
                 this.readCameraCapabilities();
+                await this.loadCameraList();
+
+                if (this.cameraId) {
+                    localStorage.setItem('qr-camera-id', this.cameraId);
+                }
             } catch (e) {
-                this.error = '{{ __('filament-qr-scanner::scanner.error_start') }} ' + (e.message || e);
+                this.error = this.describeCameraError(e);
                 this.active = false;
+
+                // A remembered camera that no longer exists must not lock the
+                // operator out: forget it so the next attempt asks the platform
+                // for whatever rear camera it has.
+                if (this.cameraId) {
+                    localStorage.removeItem('qr-camera-id');
+                    this.cameraId = null;
+                }
             }
         },
 
