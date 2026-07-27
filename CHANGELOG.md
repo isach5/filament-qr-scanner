@@ -1,5 +1,43 @@
 # Changelog
 
+## v1.11.0 — 2026-07-27
+
+### Fixed
+
+- **Photo capture had every bug the scanner had already lost.** It still opened
+  on `cameras[cameras.length - 1]` — whichever lens the browser listed last, on
+  an iPhone usually the telephoto, which cannot focus at the distance an
+  operator holds a label — still fired three `getUserMedia` calls per open, and
+  still showed raw device labels, so a phone with three rear cameras offered
+  three identical buttons. It now shares the scanner's camera machinery: one
+  request per open, `CameraPicker` for naming and choosing, a `<select>` that
+  cannot widen the dialog, and a sticky footer.
+- **Opening no longer asks for a specific device.** A `deviceId` constraint
+  fails with `OverconstrainedError` as soon as the remembered id goes stale —
+  Safari reissues them every session — and a failed `getUserMedia` is a wasted
+  permission prompt. Both components open on `facingMode` and apply a remembered
+  camera afterwards, on a permission already granted.
+
+### Added
+
+- `scanner.keep_alive` (45 seconds): closing the scanner modal **parks** the
+  camera instead of releasing it, so reopening costs no `getUserMedia` at all —
+  which on iOS Safari is what being asked for the camera again and again
+  actually is. It is released after the window passes so the recording
+  indicator does not sit on for the rest of a shift. `0` releases immediately.
+
+### Changed
+
+- The package presents itself as what it is: camera components for Filament,
+  QR scanning **and** quick photo capture, rather than a QR scanner that
+  happens to ship a second component.
+
+### Removed
+
+- `photo.error_no_camera`, `photo.error_detecting` and `photo.error_generic`,
+  which nothing renders since the error handling was consolidated. Caught by
+  the translation guard added in v1.10.0, on its first day.
+
 ## v1.10.0 — 2026-07-27
 
 ### Added

@@ -78,6 +78,13 @@ return [
     | more scanning area but has been seen to overflow the modal on iOS
     | Safari. Change it only with a real phone in your hand.
     |
+    | 'keep_alive' is how many seconds the camera stays parked after the modal
+    | closes. Reopening within that window resumes the same stream, so it costs
+    | no getUserMedia — which on iOS Safari is what an operator experiences as
+    | being asked for the camera over and over. The recording indicator stays on
+    | while parked, so it is released after the window passes. Set 0 to release
+    | the camera the moment the modal closes.
+    |
     | 'native_decoder' uses the browser's own BarcodeDetector where it exists —
     | Chrome and Edge, including Android — and falls back to the bundled
     | javascript decoder elsewhere. Native decoding is faster and reads
@@ -95,6 +102,7 @@ return [
         'duplicate_window' => 1500,
         'formats' => null,
         'native_decoder' => true,
+        'keep_alive' => 45,
     ],
 
     /*

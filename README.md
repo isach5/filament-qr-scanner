@@ -1,11 +1,13 @@
-# Filament QR Scanner
+# Filament Camera — QR scanning and quick photo capture
 
-Camera components for Filament v4. Two Blade components you can drop anywhere Blade renders — a custom page, a resource form, a relation manager, the body of an Action modal:
+Two camera components for Filament v4, droppable anywhere Blade renders — a custom page, a resource form, a relation manager, the body of an Action modal:
 
-- **`<x-qr-camera-scanner>`** — live camera QR/barcode scanning, wired straight into a Livewire property and action.
-- **`<x-photo-camera-capture>`** — take a photo, downscale it in the browser, hand the server a base64 data URL.
+- **`<x-qr-camera-scanner>`** — live QR/barcode scanning, wired straight into a Livewire property and action.
+- **`<x-photo-camera-capture>`** — quick photo capture: shoot, downscale in the browser, hand the server a base64 data URL. No temporary uploads, no file picker, nothing to wire but a property.
 
-Built for shop-floor use: multi-camera switching, permission handling with per-browser instructions, audible feedback, offline-safe assets, and a duplicate-scan protocol that survives an operator holding a code in front of the lens.
+Both share the same camera machinery, so both behave the same way on the same device: they open on the main rear lens rather than whichever the browser listed last, they name every lens instead of showing three buttons all reading "Back", and they ask for the camera **once** per open — three separate `getUserMedia` calls is what an operator experiences as being asked for permission over and over.
+
+Built for shop-floor use: torch and zoom where the device has them, permission handling with per-browser instructions, audible feedback, offline-safe assets, and a duplicate-scan protocol that survives an operator holding a code in front of the lens.
 
 ## Installation
 
@@ -70,7 +72,11 @@ Whatever the operator picks is remembered and always wins over the heuristic on 
 
 The switcher is a `<select>` rather than a row of buttons, deliberately: a row of pills hands the dialog its full intrinsic width however it is clipped, and four lenses with long names were enough to push the modal off the side of a phone screen.
 
-Opening the scanner makes exactly one `getUserMedia` call — the one that starts the camera. Probing for permission first and enumerating cameras second is what makes iOS Safari ask the operator again and again.
+Opening makes exactly one `getUserMedia` call — the one that starts the camera — and it never asks for a specific device: a `deviceId` constraint fails the moment a remembered id goes stale, which Safari guarantees by reissuing them every session, and a failed request is a wasted prompt. A remembered camera is applied afterwards, on a permission already granted.
+
+Closing the modal **parks** the camera rather than releasing it, so reopening costs no request at all. It is released for real after `scanner.keep_alive` seconds (45 by default, `0` to release immediately) so the recording indicator does not sit on for the rest of a shift.
+
+None of that can make iOS Safari remember the permission between page loads — that is a browser policy, and the durable fix is the device setting: **Settings → Safari → Camera → Allow**, or per site through the `aA` menu → Website Settings → Camera.
 
 ### Torch and zoom
 
@@ -135,7 +141,9 @@ The component talks to the hosting page over window events, so the page can own 
 </div>
 ```
 
-## Photo capture
+## Quick photo capture
+
+Evidence photos without a file picker or a temporary upload: the operator taps, frames, shoots, and the frame arrives as a base64 JPEG on a Livewire property.
 
 ```blade
 <x-photo-camera-capture wire-model="damagePhotoUpload" />

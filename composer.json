@@ -1,17 +1,18 @@
 {
     "name": "emuniq/filament-qr-scanner",
-    "description": "Camera components for Filament: QR/barcode scanning and base64 photo capture, drop-in anywhere Blade renders — pages, resources, relation managers and modals.",
+    "description": "Camera components for Filament: QR/barcode scanning and quick photo capture, drop-in anywhere Blade renders — pages, resources, relation managers and modals.",
     "license": "MIT",
     "keywords": [
         "filament",
         "filamentphp",
         "laravel",
         "livewire",
+        "camera",
+        "photo-capture",
+        "webcam",
         "qr",
         "barcode",
         "scanner",
-        "camera",
-        "photo-capture",
         "html5-qrcode"
     ],
     "authors": [

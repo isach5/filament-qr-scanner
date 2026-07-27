@@ -360,19 +360,42 @@ it('asks for the camera exactly once per open', function () {
         ->toContain("{ facingMode: 'environment' }");
 });
 
-it('falls back to the platform default when no camera is remembered', function () {
+it('forgets a remembered camera that is no longer present', function () {
     expect(Blade::render('<x-qr-camera-scanner />'))
-        ->toContain("const target = this.cameraId || { facingMode: 'environment' }");
+        ->toContain("localStorage.removeItem('qr-camera-id')");
 });
 
-it('retries once without the remembered camera when it fails to start', function () {
-    // Safari hands out fresh device ids every session, so a remembered one is
-    // routinely stale by the next visit. Failing and making the operator tap
-    // again costs a second camera permission prompt.
+it('never opens by asking for a specific device', function () {
+    // A deviceId constraint fails with OverconstrainedError the moment the
+    // remembered id goes stale — Safari reissues them every session — and a
+    // failed getUserMedia is a wasted permission prompt. facingMode always
+    // resolves to something.
     expect(Blade::render('<x-qr-camera-scanner />'))
-        ->toContain("localStorage.removeItem('qr-camera-id')")
-        ->toContain('return this.startCamera(true)')
-        ->toContain('async startCamera(retrying = false)');
+        ->toContain("const target = deviceId || { facingMode: 'environment' }")
+        ->toContain('async startCamera(deviceId = null)')
+        ->toContain('applyRememberedCamera');
+});
+
+it('parks the camera when the modal closes instead of releasing it', function () {
+    // Reopening then costs no getUserMedia at all, which on iOS Safari is what
+    // an operator experiences as being asked for the camera again and again.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('suspendScanning()')
+        ->toContain('this.scanner.pause(true)')
+        ->toContain('this.scanner.resume()')
+        ->toContain('keepAliveMs: 45000');
+
+    // And it is released for real afterwards, so the recording indicator does
+    // not sit on for the rest of the shift.
+    expect($html)->toContain('setTimeout(() => this.stopScanning(), this.keepAliveMs)');
+});
+
+it('can be told to release the camera immediately', function () {
+    config()->set('filament-qr-scanner.scanner.keep_alive', 0);
+
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('keepAliveMs: 0');
 });
 
 it('keeps the close button reachable however tall the body gets', function () {

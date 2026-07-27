@@ -12,6 +12,7 @@
     'qrboxSize' => null,
     'qrboxRatio' => null,
     'aspectRatio' => null,
+    'keepAlive' => null,
     'formats' => null,
     'closeOnScan' => false,
 ])
@@ -38,6 +39,7 @@
     }
     $duplicateWindow = config('filament-qr-scanner.scanner.duplicate_window', 1500);
     $nativeDecoder = (bool) config('filament-qr-scanner.scanner.native_decoder', true);
+    $keepAlive = max(0, (int) ($keepAlive ?? config('filament-qr-scanner.scanner.keep_alive', 45)));
 
     if ($qrboxRatio !== null) {
         $qrboxRatio = (float) $qrboxRatio;
@@ -84,7 +86,7 @@
 <div
     wire:ignore
     x-load-js="{{ Js::from([$scriptUrl, $sessionUrl, $pickerUrl]) }}"
-    x-on:close-modal.window="if ($event.detail?.id === '{{ $modalId }}') stopScanning()"
+    x-on:close-modal.window="if ($event.detail?.id === '{{ $modalId }}') suspendScanning()"
     x-on:scan-rejected.window="handleRejection($event.detail)"
     x-on:scanner-reset.window="resetSession()"
     x-on:scan-resume.window="resumeAfterRejection()"
@@ -101,6 +103,9 @@
         flashing: false,
         soundOn: localStorage.getItem('qr-scanner-sound') !== '0',
         wasOpenWhenRejected: false,
+        paused: false,
+        keepAliveMs: {{ (int) $keepAlive * 1000 }},
+        _releaseTimer: null,
         formats: {{ Js::from($formats) }},
 
         torchSupported: false,
@@ -142,6 +147,20 @@
 
             await this.$nextTick();
             await new Promise(r => setTimeout(r, 200));
+
+            clearTimeout(this._releaseTimer);
+
+            // Still parked from the last open: resuming touches no permission.
+            if (this.scanner && this.active && this.paused) {
+                try {
+                    this.scanner.resume();
+                    this.paused = false;
+                    return;
+                } catch (e) {
+                    await this.stopScanning();
+                }
+            }
+
             await this.startCamera();
         },
 
@@ -193,7 +212,7 @@
             } catch (e) {}
         },
 
-        async startCamera(retrying = false) {
+        async startCamera(deviceId = null) {
             if (this.active) await this.stopScanning();
 
             const readerId = 'qr-reader-{{ $modalId }}';
@@ -207,12 +226,13 @@
                 : new Html5Qrcode(readerId);
             this.active = true;
 
-            // A remembered device wins; otherwise ask for the rear camera by
-            // constraint and let the platform hand over its default lens. This
-            // is what keeps the whole open to a single permission request:
-            // there is no device list to fetch before we can start.
-            this.cameraId = this.cameraId || localStorage.getItem('qr-camera-id');
-            const target = this.cameraId || { facingMode: 'environment' };
+            // Opening never asks for a specific device. A deviceId constraint
+            // fails with OverconstrainedError as soon as the remembered id has
+            // gone stale — Safari reissues them every session — and a failed
+            // getUserMedia is a wasted permission prompt. facingMode always
+            // resolves to something. A remembered camera is applied afterwards
+            // by applyRememberedCamera(), on a permission already granted.
+            const target = deviceId || { facingMode: 'environment' };
 
             try {
                 await this.scanner.start(
@@ -232,26 +252,59 @@
                     () => {}
                 );
                 this.permissionState = 'granted';
+                this.paused = false;
                 this.readCameraCapabilities();
                 await this.loadCameraList();
 
-                if (this.cameraId) {
-                    localStorage.setItem('qr-camera-id', this.cameraId);
-                }
+                if (deviceId === null) await this.applyRememberedCamera();
             } catch (e) {
                 this.active = false;
-
-                // Safari hands out fresh device ids every session, so a
-                // remembered one is routinely stale by the next visit. Falling
-                // back here rather than making the operator tap again is what
-                // keeps that from costing a second permission prompt.
-                if (this.cameraId && !retrying) {
-                    localStorage.removeItem('qr-camera-id');
-                    this.cameraId = null;
-                    return this.startCamera(true);
-                }
-
                 this.error = this.describeCameraError(e);
+            }
+        },
+
+        /**
+         * Switch to the camera the operator chose last time, if it is still
+         * here. Deliberately after the stream is up: by now the permission is
+         * granted for this session, so this costs no prompt even though it is
+         * a second getUserMedia.
+         */
+        async applyRememberedCamera() {
+            const remembered = localStorage.getItem('qr-camera-id');
+
+            if (! remembered || remembered === this.cameraId) return;
+            if (! this.cameras.some(camera => camera.id === remembered)) {
+                localStorage.removeItem('qr-camera-id');
+                return;
+            }
+
+            this.cameraId = remembered;
+            await this.startCamera(remembered);
+        },
+
+        /**
+         * Closing the modal parks the camera instead of releasing it, so
+         * reopening costs no getUserMedia at all — which on iOS Safari is what
+         * an operator experiences as being asked for the camera again. After
+         * keepAliveMs with the modal shut it is released for real, so the
+         * recording indicator does not sit on for the rest of the shift.
+         */
+        suspendScanning() {
+            if (! this.scanner || ! this.active || this.paused) return this.stopScanning();
+
+            try {
+                this.scanner.pause(true);
+                this.paused = true;
+            } catch (e) {
+                return this.stopScanning();
+            }
+
+            clearTimeout(this._releaseTimer);
+
+            if (this.keepAliveMs > 0) {
+                this._releaseTimer = setTimeout(() => this.stopScanning(), this.keepAliveMs);
+            } else {
+                this.stopScanning();
             }
         },
 
@@ -278,14 +331,15 @@
 
             @if($closeOnScan)
                 // Single-shot / lookup mode: close after each scan.
-                this.stopScanning();
+                this.suspendScanning();
                 this.$dispatch('close-modal', { id: '{{ $modalId }}' });
             @endif
         },
 
         async switchCamera(newId) {
             this.cameraId = newId;
-            await this.startCamera();
+            localStorage.setItem('qr-camera-id', newId);
+            await this.startCamera(newId);
         },
 
         /**
@@ -367,6 +421,9 @@
         },
 
         async stopScanning() {
+            clearTimeout(this._releaseTimer);
+            this.paused = false;
+
             if (this.scanner && this.active) {
                 try { await this.scanner.stop(); } catch (e) {}
                 try { this.scanner.clear(); } catch (e) {}
@@ -405,7 +462,7 @@
             // was never called, so fire scan-rejected ourselves and let the
             // page-level overlay show the error.
             this.wasOpenWhenRejected = true;
-            this.stopScanning();
+            this.suspendScanning();
             this.$dispatch('close-modal', { id: '{{ $modalId }}' });
             this.$dispatch('scan-rejected', { message, qrCode });
         },
@@ -417,7 +474,7 @@
             this.session().remember(detail.qrCode);
             if (this.active) {
                 this.wasOpenWhenRejected = true;
-                this.stopScanning();
+                this.suspendScanning();
                 this.$dispatch('close-modal', { id: '{{ $modalId }}' });
             }
         },
@@ -688,7 +745,7 @@
             <x-filament::button
                 color="gray"
                 class="w-full"
-                @click="stopScanning(); $dispatch('close-modal', { id: '{{ $modalId }}' })"
+                @click="suspendScanning(); $dispatch('close-modal', { id: '{{ $modalId }}' })"
             >
                 {{ __('filament-qr-scanner::scanner.close') }}
             </x-filament::button>

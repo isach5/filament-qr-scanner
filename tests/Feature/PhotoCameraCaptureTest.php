@@ -53,3 +53,44 @@ it('gives every instance its own modal, video and canvas ids', function () {
 
     expect(array_unique($modals[0]))->toHaveCount(2);
 });
+
+it('asks for the camera exactly once per open', function () {
+    // Same fix the scanner got: probing for permission and then enumerating
+    // meant three getUserMedia calls, and iOS Safari answers each with a prompt.
+    $html = Blade::render('<x-photo-camera-capture />');
+
+    expect($html)
+        ->not->toContain('requestPermission')
+        ->toContain("video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'environment' }")
+        ->toContain('async startStream(deviceId = null)')
+        ->toContain('applyRememberedCamera');
+});
+
+it('names the lenses through the picker instead of showing raw labels', function () {
+    $html = Blade::render('<x-photo-camera-capture />');
+
+    expect($html)
+        ->toContain('camera-picker')
+        ->toContain('EmuniqCameraPicker.describe(devices, this.cameraNames)')
+        ->toContain('EmuniqCameraPicker.resolveActive(')
+        ->not->toContain('this.cameras[this.cameras.length - 1]');
+});
+
+it('switches camera through a select and keeps the close button reachable', function () {
+    $html = Blade::render('<x-photo-camera-capture />');
+
+    expect($html)
+        ->toContain('<select')
+        ->toContain('x-model="cameraId"')
+        ->toContain('switchCamera($event.target.value)')
+        ->toContain('sticky-footer');
+});
+
+it('maps camera failures to the translated explanations', function () {
+    $html = Blade::render('<x-photo-camera-capture />');
+
+    expect($html)
+        ->toContain('describeCameraError')
+        ->toContain(__('filament-qr-scanner::photo.error_denied_short'))
+        ->toContain(__('filament-qr-scanner::photo.error_in_use'));
+});
