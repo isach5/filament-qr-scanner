@@ -38,11 +38,13 @@
     // camera last. That fallback lives at the end of pickDefault().
     var PREFERENCE = ['wide', 'back', 'ultrawide', 'macro', 'telephoto', 'front'];
 
-    // Order the switcher shows them in. Rear lenses first, most useful for
-    // scanning first, and the front camera last — an operator scanning a label
-    // wants it about never, and a browser that enumerates it first should not
-    // decide the menu.
-    var DISPLAY_ORDER = ['wide', 'back', 'ultrawide', 'macro', 'telephoto', 'unknown', 'front'];
+    // Order the switcher shows them in. The plain rear camera leads: it is the
+    // one an operator means when they say "the back camera", and on a phone
+    // that only reports generic labels it is the only rear entry there is. The
+    // named lenses follow, and the front camera goes last — someone scanning a
+    // label wants it about never, and a browser that enumerates it first should
+    // not get to decide the menu.
+    var DISPLAY_ORDER = ['back', 'wide', 'ultrawide', 'macro', 'telephoto', 'unknown', 'front'];
 
     // Every kind classify() can return is in DISPLAY_ORDER, and a test keeps
     // the two lists in step, so there is no -1 case to defend against here.

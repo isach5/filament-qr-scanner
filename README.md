@@ -63,7 +63,7 @@ Extra attributes (`class`, `id`, …) are merged onto the wrapper.
 
 A modern phone reports several rear cameras, and the browser hands them over as free-form labels that differ per platform and per interface language. Two things follow from that, and the component handles both:
 
-- **It opens on the main wide lens**, not on whatever the browser happened to enumerate last. The telephoto cannot focus at the distance an operator holds a label, and the ultra wide spends its resolution on everything except the code. Preference order: plain wide → generic rear → ultra wide → macro → telephoto → front.
+- **It opens on the main wide lens**, not on whatever the browser happened to enumerate last. The telephoto cannot focus at the distance an operator holds a label, and the ultra wide spends its resolution on everything except the code. Preference order for what it opens with: plain wide → generic rear → ultra wide → macro → telephoto → front. The menu lists them rear-first: generic rear, wide, ultra wide, macro, telephoto, front.
 - **Every lens gets a name of its own** — "Wide", "Ultra wide", "Telephoto", "Macro" — instead of three buttons all reading "Back". If two names would still collide they are numbered.
 
 Whatever the operator picks is remembered and always wins over the heuristic on the next open: they know their workstation better than a regex does. A camera that no longer exists is forgotten rather than failing every future open.

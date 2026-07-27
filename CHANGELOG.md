@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.9.2 — 2026-07-27
+
+### Changed
+
+- The plain rear camera leads the switcher. It is what an operator means by
+  "the back camera", and on a phone whose browser only reports generic labels
+  it is the only rear entry there is. The named lenses follow; the front camera
+  still goes last.
+
 ## v1.9.1 — 2026-07-27
 
 ### Fixed

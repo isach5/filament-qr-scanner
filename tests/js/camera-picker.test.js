@@ -226,11 +226,12 @@ test('the menu is ordered by how useful the lens is for scanning', () => {
             { id: 'odd', label: 'Logitech C920' },
             { id: 'ultra', label: 'Back Ultra Wide Camera' },
             { id: 'wide', label: 'Back Dual Wide Camera' },
+            { id: 'plain', label: 'Camara posterior' },
         ],
         NAMES,
     );
 
-    assert.deepEqual(described.map((c) => c.id), ['wide', 'ultra', 'tele', 'odd', 'front']);
+    assert.deepEqual(described.map((c) => c.id), ['plain', 'wide', 'ultra', 'tele', 'odd', 'front']);
 });
 
 test('cameras of the same kind keep the order the browser gave them', () => {
@@ -294,4 +295,20 @@ test('a facingMode with nothing to match falls through to preference', () => {
     const frontOnly = CameraPicker.describe([{ id: 'f1', label: 'Front Camera' }], NAMES);
 
     assert.equal(CameraPicker.resolveActive(frontOnly, null, 'environment'), 'f1');
+});
+
+test('the plain rear camera is always the first option', () => {
+    // What an operator means by "the back camera", and on a phone that only
+    // reports generic labels it is the only rear entry that exists.
+    const described = CameraPicker.describe(
+        [
+            { id: 'f1', label: 'Front Camera' },
+            { id: 'w1', label: 'Back Dual Wide Camera' },
+            { id: 'b1', label: 'Back Camera' },
+        ],
+        NAMES,
+    );
+
+    assert.equal(described[0].name, 'Trasera');
+    assert.equal(described.at(-1).name, 'Frontal');
 });
