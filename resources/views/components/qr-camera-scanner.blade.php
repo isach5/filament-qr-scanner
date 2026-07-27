@@ -570,7 +570,10 @@
                         'bottom:0;left:0;border-bottom-width:3px;border-left-width:3px',
                         'bottom:0;right:0;border-bottom-width:3px;border-right-width:3px',
                     ] as $corner)
-                        <span style="position:absolute;{{ $corner }};width:14%;height:14%;border-color:#fff;border-style:solid;border-width:0"></span>
+                        {{-- border-width:0 first: a shorthand after the
+                             per-side longhands would reset them and the guide
+                             would render as nothing at all. --}}
+                        <span style="position:absolute;width:14%;height:14%;border-color:#fff;border-style:solid;border-width:0;{{ $corner }}"></span>
                     @endforeach
                 </div>
 

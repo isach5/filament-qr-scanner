@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.9.1 — 2026-07-27
+
+### Fixed
+
+- The new aiming guide rendered as nothing at all: `border-width: 0` was written
+  after the per-side longhands in the same declaration, and the shorthand reset
+  them. Order corrected, with a test that reads the four corners back.
+
 ## v1.9.0 — 2026-07-27
 
 ### Fixed

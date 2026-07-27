@@ -490,3 +490,17 @@ it('binds inline styles as an object so the static ones survive', function () {
     // stacked in a narrow box. An object merges instead.
     expect(Blade::render('<x-qr-camera-scanner />'))->toContain(':style="{');
 });
+
+it('draws the guide corners with widths that survive the shorthand', function () {
+    // border-width:0 written AFTER the per-side longhands resets them, and the
+    // aiming square renders as nothing at all.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    preg_match_all('/<span style="position:absolute;[^"]*border-width:0;([^"]*)"/', $html, $matches);
+
+    expect($matches[1])->toHaveCount(4);
+
+    foreach ($matches[1] as $corner) {
+        expect($corner)->toContain('3px');
+    }
+});
