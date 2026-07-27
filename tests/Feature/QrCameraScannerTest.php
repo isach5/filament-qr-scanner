@@ -553,9 +553,33 @@ it('does not restart the camera when the remembered lens is the one already runn
 });
 
 it('says the camera is starting instead of showing a mute black box', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain(__('filament-qr-scanner::scanner.starting'));
+});
+
+it('gives the viewfinder its background inline, not through a utility class', function () {
+    // bg-black is a Tailwind utility the host app's build has no reason to have
+    // compiled — the package ships no CSS and nothing scans its views. Without
+    // it the viewfinder is a transparent hole until the video paints.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('background: #030712')
+        ->not->toContain('rounded-xl bg-black');
+});
+
+it('says it is starting from the moment the modal opens', function () {
+    // The camera only starts once the modal is laid out, so keying this off the
+    // scanner being active left a mute empty box during the open animation.
     $html = Blade::render('<x-qr-camera-scanner />');
 
     expect($html)
-        ->toContain('x-show="active && ! videoReady"')
-        ->toContain(__('filament-qr-scanner::scanner.starting'));
+        ->toContain('x-show="starting && ! videoReady"')
+        ->toContain('this.starting = true;');
+});
+
+it('asks for continuous autofocus where the device offers it', function () {
+    // A label held at arm's length in front of a camera parked on a fixed focus
+    // distance never resolves, and the operator ends up waving the phone about.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('requestContinuousFocus')
+        ->toContain("focusMode: 'continuous'");
 });

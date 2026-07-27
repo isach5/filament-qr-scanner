@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.13.1 — 2026-07-27
+
+### Fixed
+
+- **The viewfinder was a transparent hole while the camera started.** Its
+  background came from a Tailwind utility, which a host app's build has no
+  reason to have compiled — the package ships no CSS and nothing scans its
+  views. Same failure as the hidden zoom label in v1.7.1; the background is
+  inline now.
+- The "starting the camera" notice only appeared once the scanner was live, but
+  the camera cannot start until the modal is laid out. During that gap the
+  operator saw an empty box with no explanation. It shows from the moment the
+  modal opens.
+
+### Added
+
+- Continuous autofocus is requested where the device offers it. A label held at
+  arm's length in front of a camera parked on a fixed focus distance never
+  resolves, and the operator ends up waving the phone about.
+
 ## v1.13.0 — 2026-07-27
 
 ### Changed

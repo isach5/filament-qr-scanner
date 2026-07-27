@@ -105,6 +105,7 @@
         wasOpenWhenRejected: false,
         paused: false,
         videoReady: false,
+        starting: false,
         keepAliveMs: {{ (int) $keepAlive * 1000 }},
         _releaseTimer: null,
         formats: {{ Js::from($formats) }},
@@ -132,6 +133,7 @@
         async openScannerModal() {
             this.error = null;
             this.loading = true;
+            this.starting = true;
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 this.error = '{{ __('filament-qr-scanner::scanner.error_no_support') }}';
@@ -273,12 +275,15 @@
                 this.permissionState = 'granted';
                 this.paused = false;
                 this.videoReady = true;
+                this.starting = false;
+                this.requestContinuousFocus();
                 this.readCameraCapabilities();
                 await this.loadCameraList();
 
                 if (deviceId === null) await this.applyRememberedCamera();
             } catch (e) {
                 this.active = false;
+                this.starting = false;
                 this.error = this.describeCameraError(e);
             }
         },
@@ -427,6 +432,22 @@
             }
         },
 
+        /**
+         * Ask for continuous autofocus. A label held at arm's length in front of
+         * a camera parked on a fixed focus distance simply never resolves, and
+         * the operator ends up waving the phone about. Not every device exposes
+         * it; the ones that do not are no worse off.
+         */
+        requestContinuousFocus() {
+            try {
+                const capabilities = this.scanner.getRunningTrackCapabilities?.() ?? {};
+
+                if (Array.isArray(capabilities.focusMode) && capabilities.focusMode.includes('continuous')) {
+                    this.scanner.applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }] });
+                }
+            } catch (e) {}
+        },
+
         async applyTorch(on) {
             if (!this._torch) return;
             try {
@@ -465,6 +486,7 @@
             this.scanner = null;
             this.active = false;
             this.videoReady = false;
+            this.starting = false;
         },
 
         flashOk() {
@@ -642,8 +664,8 @@
                  stream wider than the modal used to drag the whole dialog off
                  the side of a phone screen, close button included. --}}
             <div
-                class="relative overflow-hidden rounded-xl bg-black ring-1 ring-gray-950/10 dark:ring-white/10"
-                style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh;"
+                class="relative overflow-hidden rounded-xl"
+                style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh; background: #030712; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08)"
             >
                 <div id="qr-reader-{{ $modalId }}" style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh; overflow: hidden;"></div>
 
@@ -676,7 +698,7 @@
                 </div>
 
                 <div
-                    x-show="active && ! videoReady"
+                    x-show="starting && ! videoReady"
                     x-cloak
                     style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:.5rem;color:rgba(255,255,255,.85);font-size:.8125rem"
                 >
