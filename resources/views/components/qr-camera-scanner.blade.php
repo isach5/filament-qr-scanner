@@ -41,6 +41,12 @@
     $nativeDecoder = (bool) config('filament-qr-scanner.scanner.native_decoder', true);
     $keepAlive = max(0, (int) ($keepAlive ?? config('filament-qr-scanner.scanner.keep_alive', 45)));
 
+    // The viewfinder reserves its height from this ratio before the stream
+    // exists, so the dialog never grows when the picture arrives. Follows
+    // aspect_ratio when one is pinned; 4/3 is what facingMode hands over on
+    // essentially every phone otherwise.
+    $viewfinderRatio = $aspectRatio !== null ? $aspectRatio : '4 / 3';
+
     if ($qrboxRatio !== null) {
         $qrboxRatio = (float) $qrboxRatio;
 
@@ -655,7 +661,16 @@
                    for, not the one it got, so it renders as a rectangle when the
                    browser ignores the requested aspect ratio. Ours replaces it. */
                 #qr-reader-{{ $modalId }} #qr-shaded-region { display: none !important; }
-                #qr-reader-{{ $modalId }} video { display: block; max-width: 100%; }
+                /* contain, not cover: the whole frame stays visible, so what
+                   the operator aims at is what gets decoded. A frame whose
+                   shape differs from the reserved box shows thin dark bars
+                   rather than resizing the dialog. */
+                #qr-reader-{{ $modalId }} video {
+                    display: block;
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: contain;
+                }
                 @keyframes spin { to { transform: rotate(360deg); } }
             </style>
 
@@ -665,9 +680,13 @@
                  the side of a phone screen, close button included. --}}
             <div
                 class="relative overflow-hidden rounded-xl"
-                style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh; background: #030712; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08)"
+                style="width: 100%; max-width: 100%; aspect-ratio: {{ $viewfinderRatio }}; max-height: 52vh; background: #030712; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08)"
             >
-                <div id="qr-reader-{{ $modalId }}" style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh; overflow: hidden;"></div>
+                {{-- Absolutely positioned so it fills the reserved box without
+                     contributing to layout. The box's height comes from its
+                     aspect ratio, decided before any video exists, so the dialog
+                     does not grow the moment the picture arrives. --}}
+                <div id="qr-reader-{{ $modalId }}" style="position: absolute; inset: 0; overflow: hidden;"></div>
 
                 {{-- Our own aiming square. The library draws one too, but it
                      sizes it from the frame it asked for rather than the frame

@@ -343,9 +343,11 @@ it('sizes the aiming guide from the short side of the feed', function () {
 });
 
 it('never lets the camera preview grow past the modal', function () {
-    // The guard that keeps a wide stream from dragging the dialog off screen.
+    // The guard that keeps a wide stream from dragging the dialog off screen:
+    // the reader fills a box whose size was already decided, and clips.
     expect(Blade::render('<x-qr-camera-scanner />'))
-        ->toContain('max-width: 100%; min-height: 240px; max-height: 52vh; overflow: hidden;');
+        ->toContain('max-width: 100%; aspect-ratio:')
+        ->toContain('position: absolute; inset: 0; overflow: hidden;');
 });
 
 it('refuses a nonsensical aspect ratio', function () {
@@ -582,4 +584,26 @@ it('asks for continuous autofocus where the device offers it', function () {
     expect(Blade::render('<x-qr-camera-scanner />'))
         ->toContain('requestContinuousFocus')
         ->toContain("focusMode: 'continuous'");
+});
+
+it('reserves the viewfinder height so the dialog never grows', function () {
+    // The height used to come from the video, which does not exist until the
+    // stream paints — so the modal jumped the moment the picture arrived.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('aspect-ratio: 4 / 3')
+        ->toContain('position: absolute; inset: 0;')
+        ->not->toContain('min-height: 240px');
+});
+
+it('reserves the pinned aspect ratio when there is one', function () {
+    config()->set('filament-qr-scanner.scanner.aspect_ratio', 1.777);
+
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('aspect-ratio: 1.777');
+});
+
+it('fits the whole frame in the reserved box rather than cropping it', function () {
+    // contain, not cover: what the operator aims at is what gets decoded.
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('object-fit: contain');
 });

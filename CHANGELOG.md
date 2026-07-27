@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.14.0 — 2026-07-27
+
+### Fixed
+
+- **The modal grew when the picture arrived.** The viewfinder had no height of
+  its own — it took one from the video, which does not exist until the stream
+  paints, so the whole dialog resized under the operator's thumb. The box now
+  reserves its height from an aspect ratio before any video exists, and the
+  reader fills it absolutely. Measured with the dialog settled: identical
+  height with the camera off and with it running, a jump of 0 px.
+- A frame whose shape differs from the reserved box is fitted with
+  `object-fit: contain` — thin dark bars instead of a resize, and the whole
+  frame stays visible, so what the operator aims at is what gets decoded.
+
 ## v1.13.1 — 2026-07-27
 
 ### Fixed

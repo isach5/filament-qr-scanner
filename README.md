@@ -306,6 +306,10 @@ Worth knowing: **Safari is inconsistent about what it reports.** The same iPhone
 
 **Handled.** A row of camera buttons hands the dialog its full intrinsic width however it is clipped — `overflow-x-auto`, `min-width: 0` and `max-width` do not change that — so four lenses with long names pushed the modal, and its close button, off the side of the screen. The switcher is a `<select>`: it has a width of its own and truncates its own text. The camera preview is clamped so a stream wider than the dialog cannot drag it either.
 
+### The modal grows when the camera picture arrives
+
+**Handled.** A viewfinder with no height of its own takes one from the video, and the video does not exist until the stream paints — so the dialog resizes under the operator's thumb, mid-tap. The box reserves its height from an aspect ratio up front and the camera fills it. A frame whose shape differs is fitted rather than allowed to resize anything.
+
 ### The close button scrolls out of reach
 
 **Handled.** The viewfinder plus the controls used to push the footer past the bottom of a phone screen. The footer is sticky and the viewfinder is capped at 52vh.
