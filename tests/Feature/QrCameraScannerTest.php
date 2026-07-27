@@ -399,7 +399,7 @@ it('shows torch state with colour, never with changing text', function () {
     expect($html)
         ->toContain('aria-label="' . __('filament-qr-scanner::scanner.torch') . '"')
         ->toContain(':aria-pressed="torchOn')
-        ->toContain("background:#fbbf24")
+        ->toContain("background: torchOn ? '#fbbf24'")
         ->toContain('<span>' . __('filament-qr-scanner::scanner.torch') . '</span>')
         ->not->toContain('torch_on')
         ->not->toContain('torch_off');
@@ -464,4 +464,11 @@ it('styles the overlay inline so it does not need the host app tailwind build', 
         ->toContain('clip:rect(0,0,0,0)')
         ->toContain('accent-color:#fff')
         ->not->toContain('class="sr-only"');
+});
+
+it('binds inline styles as an object so the static ones survive', function () {
+    // x-bind:style with a STRING replaces the style attribute outright. That
+    // stripped the torch button of its layout and left the icon and its label
+    // stacked in a narrow box. An object merges instead.
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain(':style="{');
 });

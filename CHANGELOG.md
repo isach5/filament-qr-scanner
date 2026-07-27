@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.8.1 — 2026-07-27
+
+### Fixed
+
+- The torch button lost its layout: `x-bind:style` with a string REPLACES the
+  static `style` attribute rather than merging into it, so the button kept only
+  its colours and rendered as a narrow box with the icon and label stacked. It
+  binds an object now, and the label sits beside the icon on the same row as
+  the zoom.
+
 ## v1.8.0 — 2026-07-27
 
 ### Fixed
