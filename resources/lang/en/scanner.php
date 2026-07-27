@@ -15,10 +15,12 @@ return [
     'zoom' => 'Zoom',
     'sound_on' => 'Sound',
     'sound_off' => 'Muted',
-    'last_scan' => 'Last scan',
     'reading_singular' => 'read',
     'reading_plural' => 'reads',
     'continuous_hint' => 'Point the camera at the QR code. You can scan several codes in a row without closing this window.',
+
+    // For the page-level rejection overlay a host page builds itself; see the
+    // 'Page-level events' section of the README. The component does not use them.
     'rejected_title' => 'Scan rejected',
     'rejected_generic' => 'Scan rejected.',
     'duplicate_local' => 'This QR was already scanned in this session.',
@@ -26,12 +28,9 @@ return [
 
     // Errors
     'error_no_support' => 'Your browser does not support camera access. Use an updated version of Chrome, Safari, or Firefox.',
-    'error_no_camera' => 'No camera was found.',
-    'error_detecting' => 'Error detecting cameras:',
     'error_denied' => 'Camera permission denied.',
     'error_not_found' => 'No camera was found on this device.',
     'error_in_use' => 'The camera is being used by another application.',
-    'error_generic' => 'Could not access the camera:',
     'error_start' => 'Error starting camera:',
 
     // Permission help

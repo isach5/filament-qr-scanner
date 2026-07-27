@@ -239,13 +239,15 @@ Worth knowing: the JavaScript decoder underneath is [html5-qrcode](https://githu
 
 ## Translations
 
-English and Spanish included.
+English and Spanish included, and the suite keeps them honest: every language must carry exactly the same keys, no string may be blank, every string a component renders must exist in every language, and no language may carry a string nothing renders. Adding a third language means copying a folder and translating it — if you miss a key, the tests say which one.
 
 ```bash
 php artisan vendor:publish --tag=filament-qr-scanner-translations
 ```
 
 Strings live in `lang/vendor/filament-qr-scanner/{locale}/{scanner,photo}.php`. Views can be published too, with `--tag=filament-qr-scanner-views`.
+
+Three strings are shipped for you rather than used by the components — `scanner.rejected_title`, `scanner.rejected_generic` and `scanner.acknowledge`, for the page-level rejection overlay described above.
 
 ## Browser support
 

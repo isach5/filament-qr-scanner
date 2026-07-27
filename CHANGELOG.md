@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.10.0 — 2026-07-27
+
+### Added
+
+- The translations are now covered by tests: every language must carry exactly
+  the same keys, no string may be blank, every string a component renders must
+  exist in every language, and the two shipped languages must not be a
+  copy-paste of each other. A key added in one language and forgotten in the
+  other used to render as the raw dotted path on a button — the sort of thing
+  that ships unnoticed because the developer's own locale looks fine.
+
+### Removed
+
+- Four strings nothing rendered any more: `scanner.last_scan`,
+  `scanner.error_no_camera`, `scanner.error_detecting` and
+  `scanner.error_generic`. Dead strings are a tax on whoever adds a language.
+  `scanner.rejected_title`, `scanner.rejected_generic` and `scanner.acknowledge`
+  stay, documented as strings for the host page's rejection overlay.
+
 ## v1.9.2 — 2026-07-27
 
 ### Changed
