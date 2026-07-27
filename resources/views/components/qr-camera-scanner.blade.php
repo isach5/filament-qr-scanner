@@ -10,10 +10,12 @@
     'modalHeading' => null,
     'fps' => null,
     'qrboxSize' => null,
+    'formats' => null,
     'closeOnScan' => false,
 ])
 
 @php
+    use Emuniq\FilamentQrScanner\SupportedFormats;
     use Filament\Support\Facades\FilamentAsset;
     use Illuminate\Support\Js;
 
@@ -23,6 +25,9 @@
     $fps = $fps ?? config('filament-qr-scanner.scanner.fps', 10);
     $qrboxSize = $qrboxSize ?? config('filament-qr-scanner.scanner.qrbox', 250);
     $duplicateWindow = config('filament-qr-scanner.scanner.duplicate_window', 1500);
+
+    // Empty means "decode every symbology", which is the library's own default.
+    $formats = SupportedFormats::normalise($formats ?? config('filament-qr-scanner.scanner.formats'));
 
     $scriptUrl = config('filament-qr-scanner.scanner.script_url')
         ?: FilamentAsset::getScriptSrc('html5-qrcode', 'emuniq/filament-qr-scanner');
@@ -58,6 +63,7 @@
         scannedCodeTimes: new Map(),
         wasOpenWhenRejected: false,
         duplicateWindow: {{ (int) $duplicateWindow }},
+        formats: {{ Js::from($formats) }},
 
         friendlyName(cam, index) {
             const label = (cam.label || '').trim();
@@ -158,7 +164,11 @@
             const el = document.getElementById(readerId);
             if (!el) return;
 
-            this.scanner = new Html5Qrcode(readerId);
+            // An empty list leaves the decoder on its default: try every
+            // symbology on every frame.
+            this.scanner = this.formats.length
+                ? new Html5Qrcode(readerId, { formatsToSupport: this.formats.map(name => Html5QrcodeSupportedFormats[name]) })
+                : new Html5Qrcode(readerId);
             this.active = true;
 
             try {

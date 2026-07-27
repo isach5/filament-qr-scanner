@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Blade;
+use Illuminate\View\ViewException;
 
 it('wires the whole page-level rejection protocol', function () {
     $html = Blade::render('<x-qr-camera-scanner />');
@@ -90,6 +91,57 @@ it('takes the camera tuning from config and lets props win', function () {
     expect(Blade::render('<x-qr-camera-scanner :fps="25" :qrbox-size="320" />'))
         ->toContain('fps: 25')
         ->toContain('width: 320, height: 320');
+});
+
+/**
+ * Read back the symbology list the component handed to Alpine. Js::from emits
+ * either a bare [] or JSON.parse('…') with quotes escaped as \u0022, so decode
+ * rather than string-match the encoding.
+ *
+ * @return list<string>
+ */
+function renderedFormats(string $blade): array
+{
+    preg_match('/^\s*formats: (.+),$/m', Blade::render($blade), $matches);
+
+    $expression = $matches[1] ?? null;
+
+    if ($expression === null || $expression === '[]') {
+        return [];
+    }
+
+    preg_match("/JSON\.parse\('(.*)'\)/", $expression, $json);
+
+    return json_decode(str_replace('\\u0022', '"', $json[1]), true);
+}
+
+it('decodes every symbology unless told otherwise', function () {
+    expect(renderedFormats('<x-qr-camera-scanner />'))->toBe([]);
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('this.formats.length');
+});
+
+it('narrows the decoder to the requested symbologies', function () {
+    expect(renderedFormats('<x-qr-camera-scanner :formats="[\'QR_CODE\', \'code_128\']" />'))
+        ->toBe(['QR_CODE', 'CODE_128']);
+});
+
+it('takes the symbology list from config too', function () {
+    config()->set('filament-qr-scanner.scanner.formats', ['QR_CODE']);
+
+    expect(renderedFormats('<x-qr-camera-scanner />'))->toBe(['QR_CODE']);
+});
+
+it('lets a prop override the configured symbologies', function () {
+    config()->set('filament-qr-scanner.scanner.formats', ['QR_CODE']);
+
+    expect(renderedFormats('<x-qr-camera-scanner :formats="[\'EAN_13\']" />'))->toBe(['EAN_13']);
+});
+
+it('refuses to render with an unknown symbology', function () {
+    // Blade wraps it, but the message has to survive: a typo here otherwise
+    // reaches the decoder as undefined and the camera decodes nothing.
+    expect(fn () => Blade::render('<x-qr-camera-scanner :formats="[\'NOT_A_FORMAT\']" />'))
+        ->toThrow(ViewException::class, 'Unknown barcode format [NOT_A_FORMAT]');
 });
 
 it('serves the bundled html5-qrcode copy by default', function () {

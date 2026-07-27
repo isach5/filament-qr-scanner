@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.1.0 — 2026-07-27
+
+### Added
+
+- `formats` prop and `scanner.formats` config to limit which symbologies the
+  decoder attempts. The default is still all seventeen, which is also the
+  slowest; narrowing it to what your labels carry is the cheapest frame rate
+  you can buy on a low-end tablet. Unknown names throw at render time instead
+  of reaching the decoder as `undefined`, where the camera silently stops
+  recognising anything.
+
+### Fixed
+
+- Corrected the v1.0.0 note about `Panel::configureUsing`. See below.
+
 ## v1.0.0 — 2026-07-27
 
 First stable release. The pre-release `dev-main` snapshot from March was missing
@@ -31,9 +46,11 @@ most of what production had grown since; this is the whole thing.
 - Component aliases are skipped when the host app already owns that name. A
   Blade alias silently outranks an app's anonymous component, which made an
   app-level file look editable while the package's copy was what rendered.
-- Panel auto-registration moved to the provider's `register()`. In `boot()` it
-  ran after panel providers had already built their panels, so the plugin was
-  never actually attached.
+- Panel auto-registration moved to the provider's `register()`. It worked from
+  `boot()` in a real application — `Filament::registerPanel()` defers panel
+  construction until `PanelRegistry` is first resolved, which is after every
+  provider has booted — but not under Orchestra Testbench, where the registry
+  resolves during setup. `register()` is correct in both.
 - Scanned text is trimmed and empty reads are dropped.
 - Requires Filament v4, PHP 8.2+. The v3 claim was never covered by tests and
   has been dropped rather than left as an untested promise.

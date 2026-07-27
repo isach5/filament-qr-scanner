@@ -53,8 +53,22 @@ The operator taps the button, grants camera permission once, and every decoded c
 | `button-color` / `button-size` | `primary` / `lg` | Filament button styling |
 | `modal-heading` | translated | Heading of the scanner modal |
 | `fps` / `qrbox-size` | from config | Decoder tuning |
+| `formats` | from config | Symbologies to decode (see below) |
 
 Extra attributes (`class`, `id`, …) are merged onto the wrapper.
+
+### Which symbologies to decode
+
+By default the decoder tries all seventeen symbologies it knows on every frame — QR plus every 1D barcode. That is also the slowest setting. If your labels only ever carry one or two, say so:
+
+```blade
+<x-qr-camera-scanner :formats="['QR_CODE']" />
+<x-qr-camera-scanner :formats="['QR_CODE', 'CODE_128', 'EAN_13']" />
+```
+
+or set `scanner.formats` in config to apply it everywhere. It is the cheapest frame rate you can buy on the low-end tablets that usually end up mounted at a workstation. An unknown name throws at render time rather than reaching the decoder as `undefined`, where the camera would just quietly stop recognising anything.
+
+Available: `QR_CODE`, `AZTEC`, `CODABAR`, `CODE_39`, `CODE_93`, `CODE_128`, `DATA_MATRIX`, `MAXICODE`, `ITF`, `EAN_13`, `EAN_8`, `PDF_417`, `RSS_14`, `RSS_EXPANDED`, `UPC_A`, `UPC_E`, `UPC_EAN_EXTENSION`.
 
 ### Duplicate handling
 
@@ -150,6 +164,7 @@ return [
         'fps' => 10,
         'qrbox' => 250,
         'duplicate_window' => 1500,
+        'formats' => null,         // null = decode every symbology
     ],
 
     'photos' => [

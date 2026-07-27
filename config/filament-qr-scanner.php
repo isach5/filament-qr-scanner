@@ -56,6 +56,16 @@ return [
     | was already scanned counts as a deliberate re-scan instead of the same
     | code still sitting in the camera frame.
     |
+    | 'formats' limits which symbologies the decoder attempts. null (or an
+    | empty list) tries all seventeen on every frame, which is the library's
+    | default and the slowest option. Narrowing it to what your labels actually
+    | carry is the cheapest frame rate you will ever buy on a cheap tablet:
+    |
+    |     'formats' => ['QR_CODE'],
+    |     'formats' => ['QR_CODE', 'CODE_128', 'EAN_13'],
+    |
+    | See Emuniq\FilamentQrScanner\SupportedFormats::ALL for the full list.
+    |
     */
 
     'scanner' => [
@@ -63,6 +73,7 @@ return [
         'fps' => 10,
         'qrbox' => 250,
         'duplicate_window' => 1500,
+        'formats' => null,
     ],
 
     /*
