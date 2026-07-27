@@ -261,6 +261,57 @@ Three strings are shipped for you rather than used by the components — `scanne
 
 Chrome/Chromium (desktop and Android), Safari (iOS and macOS), Firefox, Edge. Camera access requires HTTPS (or `localhost`).
 
+## Field notes
+
+Everything below came out of a real shop floor, on real phones. Each one is either handled for you, or is a browser policy the package cannot reach — in which case what to do about it is spelled out.
+
+### iOS Safari asks for the camera again after every reload
+
+**Handled as far as code can.** Opening makes exactly one `getUserMedia` call, and it never asks for a specific `deviceId` — that constraint fails the moment a remembered id goes stale, which Safari guarantees by reissuing them every session, and a failed request is a wasted prompt. Closing the modal parks the camera instead of releasing it, so reopening costs nothing at all.
+
+**What no code can do:** Safari grants camera access for the page session, and a reload is a new session. There is no web API to request a persistent grant, and `navigator.permissions.query({ name: 'camera' })` is not even supported there, so the state cannot be read either.
+
+**What actually stops the asking**, both one-time per device:
+
+- **Add the site to the Home Screen.** iOS treats a Home Screen web app as its own app and keeps the camera grant between launches. Your app needs `<meta name="apple-mobile-web-app-capable" content="yes">` in its head — iOS ignores the manifest's `display: standalone`. As a bonus the browser chrome disappears, which is real height back for the modal.
+- **Settings → Safari → Camera → Allow**, or per site through the `aA` menu → Website Settings → Camera.
+
+On Chrome and Android neither is needed; the grant persists on its own.
+
+### The scanner opens on the wrong lens
+
+**Handled.** Taking whatever camera the browser enumerated last is the obvious implementation and it is wrong on any modern phone: that is usually the telephoto, which cannot focus at the distance an operator holds a label, or the ultra wide, which spends its resolution on everything except the code. The package prefers the plain wide lens and falls back through generic rear → ultra wide → macro → telephoto → front. A camera the operator picked themselves always wins over that, and is forgotten if it stops existing.
+
+### Every rear camera is called the same thing
+
+**Handled.** A phone with three rear cameras used to offer three buttons all reading "Back". Each lens is named from its label, in whatever language the browser reports it, and names that would still collide are numbered.
+
+Worth knowing: **Safari is inconsistent about what it reports.** The same iPhone may expose "Wide / Ultra wide / Telephoto" on one visit and a single generic "Back" on the next, and it does not always report a device id that appears in `enumerateDevices()`. When the id is unknown the running track's `facingMode` decides front versus rear, so the switcher never claims a camera that is not the one streaming.
+
+### The aiming square renders as a rectangle
+
+**Handled.** html5-qrcode sizes its overlay from the frame it *asked* for rather than the frame it *got*, so the moment a browser ignores the requested aspect ratio — Safari does — the square comes out stretched. The package draws its own guide with `aspect-ratio: 1`, square by construction, and hides the library's. The scan window itself is sized against the shorter side of the live viewfinder (`qrbox_ratio`) rather than a fixed pixel count, which is the only form that survives a different rendered aspect.
+
+### The modal is wider than the phone screen
+
+**Handled.** A row of camera buttons hands the dialog its full intrinsic width however it is clipped — `overflow-x-auto`, `min-width: 0` and `max-width` do not change that — so four lenses with long names pushed the modal, and its close button, off the side of the screen. The switcher is a `<select>`: it has a width of its own and truncates its own text. The camera preview is clamped so a stream wider than the dialog cannot drag it either.
+
+### The close button scrolls out of reach
+
+**Handled.** The viewfinder plus the controls used to push the footer past the bottom of a phone screen. The footer is sticky and the viewfinder is capped at 52vh.
+
+### The same code scans twice, or two codes scan as duplicates
+
+**Handled.** While a code sits in frame the decoder fires about ten times a second. The package tracks a last-seen timestamp **per code**, so a code held in front of the lens stays silent, a code re-presented after a real gap is rejected as a deliberate re-scan, and two labels alternating in frame — adjacent on the same board — are not mistaken for each other. Reopening the camera after a rejection does not immediately fire a second one.
+
+### Editing the component changes nothing
+
+**Handled, and worth knowing why.** A Blade alias registered by a package outranks an app's own anonymous component of the same name, silently. If your app has `resources/views/components/qr-camera-scanner.blade.php`, this package leaves that name alone and you keep yours; the namespaced form still works. Finding that out the hard way costs an afternoon.
+
+### The browser serves an old copy of the scripts
+
+Assets are versioned with the package version, so a release busts the cache. If you develop against a `path` repository the version is stuck at `dev-main`, the URL never changes, and a CDN in front of your app will happily serve a year-old copy — `curl -sI <asset-url> | grep age` tells you. Tag a version, or bypass the cache, before concluding a fix did not work.
+
 ## Testing
 
 The PHP side and the browser side are tested separately, and both are held at 100%.

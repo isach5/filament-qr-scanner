@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.11.1 — 2026-07-27
+
+### Added
+
+- A **Field notes** section in the README: every problem this package ran into
+  on real phones, whether it is handled for you or is a browser policy the code
+  cannot reach, and in that case exactly what to do about it. Camera permission
+  on iOS Safari, the wrong lens, three buttons all reading "Back", the aiming
+  square rendering as a rectangle, a modal wider than the screen, an
+  unreachable close button, false duplicate scans, a Blade alias shadowing an
+  app component, and a CDN serving a stale asset during development.
+
 ## v1.11.0 — 2026-07-27
 
 ### Fixed
