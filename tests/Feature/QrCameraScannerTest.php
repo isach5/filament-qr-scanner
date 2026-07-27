@@ -321,7 +321,7 @@ it('can be pointed at another aspect ratio, or none at all', function () {
 it('never lets the camera preview grow past the modal', function () {
     // The guard that keeps a wide stream from dragging the dialog off screen.
     expect(Blade::render('<x-qr-camera-scanner />'))
-        ->toContain('max-width: 100%; min-height: 300px; overflow: hidden;');
+        ->toContain('max-width: 100%; min-height: 240px; max-height: 52vh; overflow: hidden;');
 });
 
 it('refuses a nonsensical aspect ratio', function () {
@@ -347,11 +347,20 @@ it('falls back to the platform default when no camera is remembered', function (
         ->toContain("const target = this.cameraId || { facingMode: 'environment' }");
 });
 
-it('forgets a remembered camera that no longer starts', function () {
-    // Otherwise a device id left over from another phone locks the operator out
-    // of the scanner for good.
+it('retries once without the remembered camera when it fails to start', function () {
+    // Safari hands out fresh device ids every session, so a remembered one is
+    // routinely stale by the next visit. Failing and making the operator tap
+    // again costs a second camera permission prompt.
     expect(Blade::render('<x-qr-camera-scanner />'))
-        ->toContain("localStorage.removeItem('qr-camera-id')");
+        ->toContain("localStorage.removeItem('qr-camera-id')")
+        ->toContain('return this.startCamera(true)')
+        ->toContain('async startCamera(retrying = false)');
+});
+
+it('keeps the close button reachable however tall the body gets', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('sticky-footer')
+        ->toContain('max-height: 52vh');
 });
 
 it('maps camera failures to the translated explanations', function () {
@@ -391,6 +400,7 @@ it('shows torch state with colour, never with changing text', function () {
         ->toContain('aria-label="' . __('filament-qr-scanner::scanner.torch') . '"')
         ->toContain(':aria-pressed="torchOn')
         ->toContain("background:#fbbf24")
+        ->toContain('<span>' . __('filament-qr-scanner::scanner.torch') . '</span>')
         ->not->toContain('torch_on')
         ->not->toContain('torch_off');
 });

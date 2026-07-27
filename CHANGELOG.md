@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.8.0 — 2026-07-27
+
+### Fixed
+
+- **The close button could scroll out of reach on a phone.** The viewfinder
+  plus the controls pushed the footer past the bottom of the screen. The modal
+  footer is sticky now and the viewfinder is capped at 52vh, so closing the
+  scanner is always one tap away.
+- **A stale remembered camera cost a second permission prompt.** Safari hands
+  out fresh device ids every session, so the id saved last time is routinely
+  invalid on the next visit: the open failed, the operator tapped again, and
+  that second attempt was a second `getUserMedia`. It now falls back to the
+  platform's rear camera by itself, in the same attempt.
+
+### Changed
+
+- The torch button carries its label again, next to the icon and on the same
+  row as the zoom. Only the state text is gone — the colour says that.
+
 ## v1.7.1 — 2026-07-27
 
 ### Fixed

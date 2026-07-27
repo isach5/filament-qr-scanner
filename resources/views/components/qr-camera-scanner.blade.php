@@ -190,7 +190,7 @@
             } catch (e) {}
         },
 
-        async startCamera() {
+        async startCamera(retrying = false) {
             if (this.active) await this.stopScanning();
 
             const readerId = 'qr-reader-{{ $modalId }}';
@@ -236,16 +236,19 @@
                     localStorage.setItem('qr-camera-id', this.cameraId);
                 }
             } catch (e) {
-                this.error = this.describeCameraError(e);
                 this.active = false;
 
-                // A remembered camera that no longer exists must not lock the
-                // operator out: forget it so the next attempt asks the platform
-                // for whatever rear camera it has.
-                if (this.cameraId) {
+                // Safari hands out fresh device ids every session, so a
+                // remembered one is routinely stale by the next visit. Falling
+                // back here rather than making the operator tap again is what
+                // keeps that from costing a second permission prompt.
+                if (this.cameraId && !retrying) {
                     localStorage.removeItem('qr-camera-id');
                     this.cameraId = null;
+                    return this.startCamera(true);
                 }
+
+                this.error = this.describeCameraError(e);
             }
         },
 
@@ -470,7 +473,14 @@
     <div x-show="error && permissionState !== 'denied'" x-cloak class="p-3 rounded-xl bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 text-sm" x-text="error"></div>
 
     {{-- Filament Modal --}}
-    <x-filament::modal id="{{ $modalId }}" width="lg" :close-by-clicking-away="false">
+    {{-- sticky-footer: en un telefono el visor mas los controles empujaban el
+         boton de cerrar fuera de la pantalla. El cuerpo se desplaza, el pie no. --}}
+    <x-filament::modal
+        id="{{ $modalId }}"
+        width="lg"
+        :close-by-clicking-away="false"
+        sticky-footer
+    >
         <x-slot name="heading">
             {{ $modalHeading }}
         </x-slot>
@@ -529,9 +539,9 @@
                  the side of a phone screen, close button included. --}}
             <div
                 class="relative overflow-hidden rounded-xl bg-black ring-1 ring-gray-950/10 dark:ring-white/10"
-                style="width: 100%; max-width: 100%; min-height: 300px;"
+                style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh;"
             >
-                <div id="qr-reader-{{ $modalId }}" style="width: 100%; max-width: 100%; min-height: 300px; overflow: hidden;"></div>
+                <div id="qr-reader-{{ $modalId }}" style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh; overflow: hidden;"></div>
 
                 <div
                     x-show="flashing"
@@ -567,11 +577,12 @@
                         :style="torchOn
                             ? 'background:#fbbf24;color:#451a03'
                             : 'background:rgba(255,255,255,.18);color:#fff'"
-                        style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:2.25rem;height:2.25rem;border-radius:9999px;backdrop-filter:blur(4px)"
+                        style="display:inline-flex;align-items:center;gap:.375rem;justify-content:center;flex-shrink:0;height:2.25rem;padding:0 .75rem;border-radius:9999px;font-size:.75rem;font-weight:600;backdrop-filter:blur(4px)"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" style="width:1.125rem;height:1.125rem" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width:1.125rem;height:1.125rem;flex-shrink:0" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
                         </svg>
+                        <span>{{ __('filament-qr-scanner::scanner.torch') }}</span>
                     </button>
 
                     <div x-show="zoomSupported" style="display:flex;align-items:center;gap:.5rem;min-width:0;flex:1">
