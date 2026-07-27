@@ -66,10 +66,11 @@ return [
     |
     | See Emuniq\FilamentQrScanner\SupportedFormats::ALL for the full list.
     |
-    | 'qrbox' is the scan window in pixels. A fixed box is a small target on a
-    | large screen and a huge one on a phone, so 'qrbox_ratio' (0.1–1.0) sizes
-    | it against the shorter side of the live viewfinder instead. When set it
-    | wins over 'qrbox'. 0.7 is a good starting point.
+    | 'qrbox_ratio' (0.1–1.0) sizes the scan window against the shorter side of
+    | the live viewfinder, which is the only way it stays square whatever
+    | frame the browser hands over — a fixed 'qrbox' in pixels comes out as a
+    | rectangle the moment the rendered aspect differs from the requested one.
+    | Set 'qrbox_ratio' to null to go back to the fixed 'qrbox' box.
     |
     | 'aspect_ratio' forces the shape of the camera feed. The square default
     | is what keeps the preview inside the modal on a phone: unsetting it
@@ -89,7 +90,7 @@ return [
         'script_url' => null,
         'fps' => 10,
         'qrbox' => 250,
-        'qrbox_ratio' => null,
+        'qrbox_ratio' => 0.7,
         'aspect_ratio' => 1.0,
         'duplicate_window' => 1500,
         'formats' => null,

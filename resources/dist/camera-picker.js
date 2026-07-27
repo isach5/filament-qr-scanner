@@ -184,7 +184,7 @@
      *
      * @return string|null  id of an entry that exists in `described`
      */
-    function resolveActive(described, runningId) {
+    function resolveActive(described, runningId, facingMode) {
         if (!described || described.length === 0) {
             return null;
         }
@@ -197,6 +197,21 @@
 
         if (runningId && known(runningId)) {
             return runningId;
+        }
+
+        // Safari does not always report a device id that appears in
+        // enumerateDevices(), but it does say which way the camera faces. That
+        // is enough to stop the menu claiming the front camera while the rear
+        // one is streaming.
+        if (facingMode) {
+            var wantFront = facingMode === 'user';
+            var facing = described.filter(function (camera) {
+                return (camera.kind === 'front') === wantFront;
+            });
+
+            if (facing.length > 0) {
+                return facing[0].id;
+            }
         }
 
         for (var i = 0; i < PREFERENCE.length; i++) {

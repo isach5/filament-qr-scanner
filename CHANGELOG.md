@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.9.0 — 2026-07-27
+
+### Fixed
+
+- **The aiming box was a rectangle.** html5-qrcode sizes its overlay from the
+  frame it asked for rather than the frame it got, so the moment a browser
+  ignores the requested aspect ratio — Safari does — the square comes out
+  stretched. The component draws its own guide now, `aspect-ratio: 1`, square by
+  construction on every device, and hides the library's.
+- **The switcher could still name the wrong camera.** Safari does not always
+  report a device id that appears in `enumerateDevices()`. When it does not, the
+  running track's `facingMode` now decides front versus rear instead of a
+  heuristic.
+
+### Changed
+
+- `scanner.qrbox_ratio` defaults to `0.7`: the scan window is sized against the
+  shorter side of the live viewfinder instead of a fixed pixel count. A fixed
+  box is a small target on a monitor, an oversized one on a phone, and
+  rectangular whenever the rendered aspect differs from the requested one. Set
+  it to `null` for the old fixed `qrbox`.
+
 ## v1.8.2 — 2026-07-27
 
 ### Fixed

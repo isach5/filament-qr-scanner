@@ -104,6 +104,7 @@ it('falls back to the translated labels', function () {
 it('takes the camera tuning from config and lets props win', function () {
     config()->set('filament-qr-scanner.scanner.fps', 4);
     config()->set('filament-qr-scanner.scanner.qrbox', 180);
+    config()->set('filament-qr-scanner.scanner.qrbox_ratio', null);
 
     expect(Blade::render('<x-qr-camera-scanner />'))
         ->toContain('fps: 4')
@@ -211,23 +212,40 @@ it('remembers the torch and zoom the operator chose', function () {
         ->toContain("localStorage.setItem('qr-scanner-zoom'");
 });
 
-it('uses a fixed scan window by default', function () {
+it('sizes the scan window against the viewfinder by default', function () {
+    // A fixed pixel box comes out as a rectangle the moment the rendered aspect
+    // differs from the requested one, which is exactly what Safari does.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('Math.min(w, h) * 0.7');
+});
+
+it('draws its own square aiming guide and hides the library one', function () {
+    // The library sizes its overlay from the frame it asked for rather than the
+    // one it got. aspect-ratio:1 is square by construction on every device.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('aspect-ratio:1')
+        ->toContain('#qr-shaded-region { display: none !important; }');
+});
+
+it('can go back to a fixed pixel scan window', function () {
+    config()->set('filament-qr-scanner.scanner.qrbox_ratio', null);
+
     expect(Blade::render('<x-qr-camera-scanner />'))
         ->toContain('qrbox: { width: 250, height: 250 }');
 });
 
-it('sizes the scan window against the viewfinder when given a ratio', function () {
-    $html = Blade::render('<x-qr-camera-scanner :qrbox-ratio="0.7" />');
+it('lets a prop set the scan window ratio', function () {
+    $html = Blade::render('<x-qr-camera-scanner :qrbox-ratio="0.5" />');
 
     expect($html)
-        ->toContain('Math.min(w, h) * 0.7')
+        ->toContain('Math.min(w, h) * 0.5')
         ->not->toContain('qrbox: { width: 250');
 });
 
 it('takes the scan window ratio from config too', function () {
-    config()->set('filament-qr-scanner.scanner.qrbox_ratio', 0.5);
+    config()->set('filament-qr-scanner.scanner.qrbox_ratio', 0.4);
 
-    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('Math.min(w, h) * 0.5');
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('Math.min(w, h) * 0.4');
 });
 
 it('refuses a scan window ratio outside its range', function (float $ratio) {
@@ -262,7 +280,7 @@ it('delegates camera naming and choice to the picker module', function () {
     expect($html)
         ->toContain('camera-picker')
         ->toContain('EmuniqCameraPicker.describe(devices, this.cameraNames)')
-        ->toContain('EmuniqCameraPicker.resolveActive(this.cameras, running)')
+        ->toContain('EmuniqCameraPicker.resolveActive(this.cameras, running, facing)')
         ->not->toContain('devices[devices.length - 1]');
 });
 

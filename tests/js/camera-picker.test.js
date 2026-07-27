@@ -278,3 +278,20 @@ test('every kind the classifier can produce has a place in the menu order', () =
         );
     }
 });
+
+test('facingMode keeps the menu honest when the device id is unknown', () => {
+    // Safari does not always report a device id that appears in
+    // enumerateDevices(), and without this the menu claimed the front camera
+    // while the rear one was streaming.
+    const described = CameraPicker.describe(IPHONE_ES, NAMES);
+
+    assert.equal(CameraPicker.resolveActive(described, 'unknown', 'environment'), 'b1');
+    assert.equal(CameraPicker.resolveActive(described, 'unknown', 'user'), 'f1');
+    assert.equal(CameraPicker.resolveActive(described, null, 'user'), 'f1');
+});
+
+test('a facingMode with nothing to match falls through to preference', () => {
+    const frontOnly = CameraPicker.describe([{ id: 'f1', label: 'Front Camera' }], NAMES);
+
+    assert.equal(CameraPicker.resolveActive(frontOnly, null, 'environment'), 'f1');
+});

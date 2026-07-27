@@ -182,11 +182,14 @@
                 // shows its first option, which had the switcher naming the
                 // front camera while the rear one was streaming.
                 let running = this.cameraId;
+                let facing = null;
                 try {
-                    running = running || (this.scanner.getRunningTrackSettings()?.deviceId ?? null);
+                    const settings = this.scanner.getRunningTrackSettings() ?? {};
+                    running = running || settings.deviceId || null;
+                    facing = settings.facingMode ?? null;
                 } catch (e) {}
 
-                this.cameraId = EmuniqCameraPicker.resolveActive(this.cameras, running);
+                this.cameraId = EmuniqCameraPicker.resolveActive(this.cameras, running, facing);
             } catch (e) {}
         },
 
@@ -533,6 +536,14 @@
                 </div>
             </div>
 
+            <style>
+                /* html5-qrcode's own overlay is sized from the frame it asked
+                   for, not the one it got, so it renders as a rectangle when the
+                   browser ignores the requested aspect ratio. Ours replaces it. */
+                #qr-reader-{{ $modalId }} #qr-shaded-region { display: none !important; }
+                #qr-reader-{{ $modalId }} video { display: block; max-width: 100%; }
+            </style>
+
             {{-- Viewfinder. max-width plus overflow hidden are a hard stop: the
                  library sizes its own <video> from the camera frame, and a
                  stream wider than the modal used to drag the whole dialog off
@@ -542,6 +553,26 @@
                 style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh;"
             >
                 <div id="qr-reader-{{ $modalId }}" style="width: 100%; max-width: 100%; min-height: 240px; max-height: 52vh; overflow: hidden;"></div>
+
+                {{-- Our own aiming square. The library draws one too, but it
+                     sizes it from the frame it asked for rather than the frame
+                     it got, so it comes out as a rectangle whenever the browser
+                     ignores the requested aspect ratio — which Safari does. A
+                     box with aspect-ratio:1 is square by construction, on every
+                     device, always. Theirs is hidden in the style block below. --}}
+                <div
+                    aria-hidden="true"
+                    style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:{{ (int) round(($qrboxRatio ?? 0.7) * 100) }}%;max-width:{{ (int) round(($qrboxRatio ?? 0.7) * 100) }}%;aspect-ratio:1;pointer-events:none"
+                >
+                    @foreach ([
+                        'top:0;left:0;border-top-width:3px;border-left-width:3px',
+                        'top:0;right:0;border-top-width:3px;border-right-width:3px',
+                        'bottom:0;left:0;border-bottom-width:3px;border-left-width:3px',
+                        'bottom:0;right:0;border-bottom-width:3px;border-right-width:3px',
+                    ] as $corner)
+                        <span style="position:absolute;{{ $corner }};width:14%;height:14%;border-color:#fff;border-style:solid;border-width:0"></span>
+                    @endforeach
+                </div>
 
                 <div
                     x-show="flashing"
