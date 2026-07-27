@@ -253,3 +253,67 @@ it('announces the last read to assistive technology and respects reduced motion'
         ->toContain('motion-reduce:transition-none')
         ->toContain(':aria-pressed');
 });
+
+it('delegates camera naming and choice to the picker module', function () {
+    // devices[devices.length - 1] used to hand an iPhone operator the
+    // telephoto, which cannot focus at the distance a label is held.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('camera-picker')
+        ->toContain('EmuniqCameraPicker.describe(devices, this.cameraNames)')
+        ->toContain('EmuniqCameraPicker.pickDefault(')
+        ->not->toContain('devices[devices.length - 1]');
+});
+
+it('hands the picker a translated name for every lens kind', function () {
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    foreach (['camera_front', 'camera_back', 'camera_wide', 'camera_ultrawide', 'camera_telephoto', 'camera_macro'] as $key) {
+        expect($html)->toContain(__("filament-qr-scanner::scanner.{$key}"));
+    }
+});
+
+it('keeps the camera switcher on one scrollable row', function () {
+    // Four lenses wrapped across two rows steal height from the viewfinder for
+    // a control the operator touches once.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('overflow-x-auto')
+        ->not->toContain('flex flex-wrap items-center gap-2');
+});
+
+it('closes with a neutral button, not a destructive one', function () {
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)->toContain(__('filament-qr-scanner::scanner.close'));
+
+    // The close button must not carry danger styling: nothing is destroyed and
+    // red reads as abort on a shop floor.
+    preg_match('/<button[^>]*>\s*[^<]*' . preg_quote(__('filament-qr-scanner::scanner.close'), '/') . '/s', $html, $m);
+    expect($m[0] ?? '')->not->toContain('danger');
+});
+
+it('asks the camera for a square frame by default', function () {
+    // Not cosmetic: letting the camera hand over its native landscape frame
+    // pushed the whole modal off the side of an iPhone, close button included.
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('aspectRatio: 1');
+});
+
+it('can be pointed at another aspect ratio, or none at all', function () {
+    config()->set('filament-qr-scanner.scanner.aspect_ratio', 1.777);
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('aspectRatio: 1.777');
+
+    config()->set('filament-qr-scanner.scanner.aspect_ratio', null);
+    expect(Blade::render('<x-qr-camera-scanner />'))->not->toContain('aspectRatio:');
+});
+
+it('never lets the camera preview grow past the modal', function () {
+    // The guard that keeps a wide stream from dragging the dialog off screen.
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('max-width: 100%; min-height: 300px; overflow: hidden;');
+});
+
+it('refuses a nonsensical aspect ratio', function () {
+    expect(fn () => Blade::render('<x-qr-camera-scanner :aspect-ratio="0" />'))
+        ->toThrow(ViewException::class, 'aspect ratio must be greater than 0');
+});

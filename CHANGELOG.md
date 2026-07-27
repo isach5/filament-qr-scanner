@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.4.0 — 2026-07-27
+
+### Fixed
+
+- **The scanner opened on the wrong lens.** It took whatever camera the browser
+  enumerated last, which on an iPhone is one of the extra rear lenses: the
+  telephoto cannot focus at the distance an operator holds a label, and the
+  ultra wide spends its resolution on everything except the code. It now picks
+  the main wide lens — plain wide → generic rear → ultra wide → macro →
+  telephoto → front — and a remembered choice still wins over all of it.
+- **Every rear lens was called the same thing.** A phone with three rear
+  cameras showed three buttons reading "Back", so the operator had to try all
+  three. Each lens now gets its own name, and names that would still collide
+  are numbered.
+- The close button was styled as destructive. Closing the scanner destroys
+  nothing, and on a shop floor red reads as stop / abort / something broke.
+
+### Changed
+
+- Camera switcher is one row that scrolls sideways instead of wrapping. Four
+  lenses used to take two rows of height from the viewfinder for a control the
+  operator touches once.
+- The camera preview can no longer grow past the modal. A stream wider than the
+  dialog used to drag it off the side of a phone screen, close button included.
+- `aspect-ratio` prop and `scanner.aspect_ratio` config. The square default is
+  unchanged; `null` gives the sensor's native frame, which is more scanning
+  area but is what caused the overflow above on iOS Safari.
+
+### Added
+
+- `resources/dist/camera-picker.js` — naming and choosing among lenses, apart
+  from Alpine and the DOM, with 22 tests at 100% line, branch and function
+  coverage against the labels real iPhones, Android phones and laptops report
+  in both English and Spanish.
+
 ## v1.3.0 — 2026-07-27
 
 ### Added

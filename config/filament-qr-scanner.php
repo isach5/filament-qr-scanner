@@ -71,6 +71,12 @@ return [
     | it against the shorter side of the live viewfinder instead. When set it
     | wins over 'qrbox'. 0.7 is a good starting point.
     |
+    | 'aspect_ratio' forces the shape of the camera feed. The square default
+    | is what keeps the preview inside the modal on a phone: unsetting it
+    | (null) lets the camera hand over its native landscape frame, which is
+    | more scanning area but has been seen to overflow the modal on iOS
+    | Safari. Change it only with a real phone in your hand.
+    |
     | 'native_decoder' uses the browser's own BarcodeDetector where it exists —
     | Chrome and Edge, including Android — and falls back to the bundled
     | javascript decoder elsewhere. Native decoding is faster and reads
@@ -84,6 +90,7 @@ return [
         'fps' => 10,
         'qrbox' => 250,
         'qrbox_ratio' => null,
+        'aspect_ratio' => 1.0,
         'duplicate_window' => 1500,
         'formats' => null,
         'native_decoder' => true,

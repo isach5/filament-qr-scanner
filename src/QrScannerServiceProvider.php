@@ -39,6 +39,8 @@ class QrScannerServiceProvider extends ServiceProvider
                 ->loadedOnRequest(),
             Js::make('scan-session', __DIR__ . '/../resources/dist/scan-session.js')
                 ->loadedOnRequest(),
+            Js::make('camera-picker', __DIR__ . '/../resources/dist/camera-picker.js')
+                ->loadedOnRequest(),
         ], 'emuniq/filament-qr-scanner');
 
         $this->registerBladeComponents();
