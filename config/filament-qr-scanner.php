@@ -66,14 +66,27 @@ return [
     |
     | See Emuniq\FilamentQrScanner\SupportedFormats::ALL for the full list.
     |
+    | 'qrbox' is the scan window in pixels. A fixed box is a small target on a
+    | large screen and a huge one on a phone, so 'qrbox_ratio' (0.1–1.0) sizes
+    | it against the shorter side of the live viewfinder instead. When set it
+    | wins over 'qrbox'. 0.7 is a good starting point.
+    |
+    | 'native_decoder' uses the browser's own BarcodeDetector where it exists —
+    | Chrome and Edge, including Android — and falls back to the bundled
+    | javascript decoder elsewhere. Native decoding is faster and reads
+    | tired labels better. This mirrors the library's own default; set it to
+    | false to always take the javascript path.
+    |
     */
 
     'scanner' => [
         'script_url' => null,
         'fps' => 10,
         'qrbox' => 250,
+        'qrbox_ratio' => null,
         'duplicate_window' => 1500,
         'formats' => null,
+        'native_decoder' => true,
     ],
 
     /*

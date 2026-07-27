@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.0 — 2026-07-27
+
+### Added
+
+- Torch and zoom controls inside the scanner modal, shown only when the running
+  video track reports them — a laptop webcam has neither, a phone back camera
+  has both. Both choices are remembered: a station in a dark corner should not
+  need the torch switched on at every scan.
+- `qrbox-ratio` prop and `scanner.qrbox_ratio` config: size the scan window
+  against the shorter side of the live viewfinder instead of pinning it to a
+  pixel count that is small on a monitor and huge on a phone. A ratio wins over
+  `qrbox-size`; out-of-range values throw at render time.
+- `scanner.native_decoder` config, making explicit what the library already did
+  silently: decode through the browser's own `BarcodeDetector` where it exists
+  (Chrome and Edge, Android included) and fall back to the bundled JavaScript
+  decoder elsewhere. Set it to `false` to always take the JavaScript path.
+- `aria-live` on the last-read banner, `aria-pressed` on the torch toggle, and
+  `motion-reduce` on the success flash. The flash and the beep were the only
+  feedback a scan had.
+
 ## v1.2.0 — 2026-07-27
 
 ### Changed

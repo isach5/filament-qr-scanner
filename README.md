@@ -53,9 +53,26 @@ The operator taps the button, grants camera permission once, and every decoded c
 | `button-color` / `button-size` | `primary` / `lg` | Filament button styling |
 | `modal-heading` | translated | Heading of the scanner modal |
 | `fps` / `qrbox-size` | from config | Decoder tuning |
+| `qrbox-ratio` | from config | Scan window as a fraction of the viewfinder |
 | `formats` | from config | Symbologies to decode (see below) |
 
 Extra attributes (`class`, `id`, …) are merged onto the wrapper.
+
+### Torch and zoom
+
+Both are capabilities of the running video track, so the component can only know about them once the camera is live, and they differ per device: a laptop webcam usually has neither, a phone back camera usually has both. The controls appear inside the modal when the running camera reports them and stay hidden when it does not — nothing to configure.
+
+What the operator picks is remembered. A station in a dark corner should not need the torch switched on at every single scan.
+
+### Sizing the scan window
+
+`qrbox-size` is a fixed pixel box: a small target on a workstation monitor, an oversized one on a phone. `qrbox-ratio` sizes it against the shorter side of the live viewfinder instead, which travels better:
+
+```blade
+<x-qr-camera-scanner :qrbox-ratio="0.7" />
+```
+
+A ratio wins over `qrbox-size` when both are given. Tightening the window is also the second cheapest way to buy frame rate, after narrowing the symbologies.
 
 ### Which symbologies to decode
 
@@ -163,8 +180,10 @@ return [
         'script_url' => null,      // null = the bundled copy
         'fps' => 10,
         'qrbox' => 250,
+        'qrbox_ratio' => null,     // set it to size against the viewfinder
         'duplicate_window' => 1500,
         'formats' => null,         // null = decode every symbology
+        'native_decoder' => true,
     ],
 
     'photos' => [
@@ -192,6 +211,14 @@ $panel->plugin(QrScannerPlugin::make());
 ## Offline
 
 `html5-qrcode` ships inside the package and is served from your own domain, lazily, the first time an operator opens the camera. No CDN request, no dead camera when the shop floor's internet drops. Point `scanner.script_url` at a CDN if you prefer that.
+
+## How decoding actually happens
+
+Where the browser has its own `BarcodeDetector` — Chrome and Edge, Android included — decoding runs through it: the operating system's decoder, faster and more forgiving of tired labels than any JavaScript port. Everywhere else (Safari, Firefox) the bundled JavaScript decoder takes over. You get the good path where it exists and a working one where it does not, with no branching in your code.
+
+Set `scanner.native_decoder` to `false` to always take the JavaScript path — useful if you need one behaviour across a mixed fleet, or to rule the native decoder out while debugging a misread.
+
+Worth knowing: the JavaScript decoder underneath is [html5-qrcode](https://github.com/mebjas/html5-qrcode), which wraps zxing-js. Neither has seen active development since 2023. It is bundled here, so nothing can break under you, but on browsers without `BarcodeDetector` that is the code doing the reading.
 
 ## Translations
 

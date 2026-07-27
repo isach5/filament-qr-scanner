@@ -10,6 +10,7 @@
     'modalHeading' => null,
     'fps' => null,
     'qrboxSize' => null,
+    'qrboxRatio' => null,
     'formats' => null,
     'closeOnScan' => false,
 ])
@@ -24,7 +25,25 @@
     $modalHeading = $modalHeading ?? __('filament-qr-scanner::scanner.modal_heading');
     $fps = $fps ?? config('filament-qr-scanner.scanner.fps', 10);
     $qrboxSize = $qrboxSize ?? config('filament-qr-scanner.scanner.qrbox', 250);
+    $qrboxRatio = $qrboxRatio ?? config('filament-qr-scanner.scanner.qrbox_ratio');
     $duplicateWindow = config('filament-qr-scanner.scanner.duplicate_window', 1500);
+    $nativeDecoder = (bool) config('filament-qr-scanner.scanner.native_decoder', true);
+
+    if ($qrboxRatio !== null) {
+        $qrboxRatio = (float) $qrboxRatio;
+
+        if ($qrboxRatio <= 0.0 || $qrboxRatio > 1.0) {
+            throw new InvalidArgumentException(
+                "qrbox ratio must be greater than 0 and at most 1, got [{$qrboxRatio}]."
+            );
+        }
+    }
+
+    // A ratio sizes the scan window against the live viewfinder, which a fixed
+    // pixel box cannot do across a phone and a workstation monitor.
+    $qrboxExpression = $qrboxRatio !== null
+        ? '(w, h) => { const s = Math.round(Math.min(w, h) * ' . $qrboxRatio . '); return { width: s, height: s }; }'
+        : '{ width: ' . (int) $qrboxSize . ', height: ' . (int) $qrboxSize . ' }';
 
     // Empty means "decode every symbology", which is the library's own default.
     $formats = SupportedFormats::normalise($formats ?? config('filament-qr-scanner.scanner.formats'));
@@ -62,6 +81,16 @@
         soundOn: localStorage.getItem('qr-scanner-sound') !== '0',
         wasOpenWhenRejected: false,
         formats: {{ Js::from($formats) }},
+
+        torchSupported: false,
+        torchOn: localStorage.getItem('qr-scanner-torch') === '1',
+        zoomSupported: false,
+        zoomMin: 1,
+        zoomMax: 1,
+        zoomStep: 0.1,
+        zoomValue: 1,
+        _torch: null,
+        _zoom: null,
 
         // Set lazily: EmuniqScanSession arrives with x-load-js, which resolves
         // after x-data is evaluated.
@@ -180,11 +209,20 @@
             try {
                 await this.scanner.start(
                     this.cameraId,
-                    { fps: {{ (int) $fps }}, qrbox: { width: {{ (int) $qrboxSize }}, height: {{ (int) $qrboxSize }} }, aspectRatio: 1.0 },
+                    {
+                        fps: {{ (int) $fps }},
+                        qrbox: {!! $qrboxExpression !!},
+                        aspectRatio: 1.0,
+                        // Browser-native decoding where it exists (Chrome and
+                        // Edge, Android included), bundled javascript decoder
+                        // everywhere else.
+                        useBarCodeDetectorIfSupported: {{ $nativeDecoder ? 'true' : 'false' }},
+                    },
                     (text) => this.onDetected(text),
                     () => {}
                 );
                 localStorage.setItem('qr-camera-id', this.cameraId);
+                this.readCameraCapabilities();
             } catch (e) {
                 this.error = '{{ __('filament-qr-scanner::scanner.error_start') }} ' + (e.message || e);
                 this.active = false;
@@ -222,6 +260,84 @@
         async switchCamera(newId) {
             this.cameraId = newId;
             await this.startCamera();
+        },
+
+        /**
+         * Torch and zoom belong to the video track, so they can only be read
+         * once the camera is running, and they differ per device: most laptop
+         * webcams have neither, most phone back cameras have both.
+         */
+        readCameraCapabilities() {
+            this.torchSupported = false;
+            this.zoomSupported = false;
+            this._torch = null;
+            this._zoom = null;
+
+            let capabilities;
+
+            try {
+                capabilities = this.scanner.getRunningTrackCameraCapabilities();
+            } catch (e) {
+                return;
+            }
+
+            try {
+                const torch = capabilities.torchFeature();
+                if (torch.isSupported()) {
+                    this._torch = torch;
+                    this.torchSupported = true;
+                }
+            } catch (e) {}
+
+            try {
+                const zoom = capabilities.zoomFeature();
+                if (zoom.isSupported()) {
+                    this._zoom = zoom;
+                    this.zoomSupported = true;
+                    this.zoomMin = zoom.min();
+                    this.zoomMax = zoom.max();
+                    this.zoomStep = zoom.step() || 0.1;
+                    this.zoomValue = zoom.value() ?? this.zoomMin;
+                }
+            } catch (e) {}
+
+            // Re-apply what the operator chose last time. A station in a dark
+            // corner should not need the torch switched on at every scan.
+            if (this.torchSupported && this.torchOn) this.applyTorch(true);
+
+            if (this.zoomSupported) {
+                const saved = parseFloat(localStorage.getItem('qr-scanner-zoom'));
+                if (!isNaN(saved) && saved >= this.zoomMin && saved <= this.zoomMax) {
+                    this.applyZoom(saved);
+                }
+            }
+        },
+
+        async applyTorch(on) {
+            if (!this._torch) return;
+            try {
+                await this._torch.apply(on);
+            } catch (e) {
+                // Some devices advertise the capability and refuse it anyway.
+                this.torchSupported = false;
+            }
+        },
+
+        toggleTorch() {
+            this.torchOn = !this.torchOn;
+            localStorage.setItem('qr-scanner-torch', this.torchOn ? '1' : '0');
+            this.applyTorch(this.torchOn);
+        },
+
+        async applyZoom(value) {
+            if (!this._zoom) return;
+            this.zoomValue = value;
+            localStorage.setItem('qr-scanner-zoom', String(value));
+            try {
+                await this._zoom.apply(value);
+            } catch (e) {
+                this.zoomSupported = false;
+            }
         },
 
         async stopScanning() {
@@ -375,14 +491,57 @@
                 <div
                     x-show="flashing"
                     x-cloak
-                    class="absolute inset-0 pointer-events-none bg-green-400/60 transition-opacity duration-300"
+                    class="absolute inset-0 pointer-events-none bg-green-400/60 transition-opacity duration-300 motion-reduce:transition-none"
                 ></div>
             </div>
 
-            {{-- Last scan banner --}}
+            {{-- Torch and zoom: only rendered when the running track has them.
+                 A laptop webcam has neither, a phone back camera has both. --}}
+            <div x-show="torchSupported || zoomSupported" x-cloak class="flex flex-wrap items-center gap-3">
+                <button
+                    x-show="torchSupported"
+                    type="button"
+                    @click="toggleTorch()"
+                    :aria-pressed="torchOn ? 'true' : 'false'"
+                    :class="torchOn
+                        ? 'bg-amber-400 text-amber-950 shadow-sm'
+                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 min-h-[32px]"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+                    </svg>
+                    <span x-text="torchOn
+                        ? '{{ __('filament-qr-scanner::scanner.torch_on') }}'
+                        : '{{ __('filament-qr-scanner::scanner.torch_off') }}'"></span>
+                </button>
+
+                <div x-show="zoomSupported" class="flex items-center gap-2 min-w-[10rem] flex-1">
+                    <label
+                        :for="'qr-zoom-{{ $modalId }}'"
+                        class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                    >{{ __('filament-qr-scanner::scanner.zoom') }}</label>
+                    <input
+                        :id="'qr-zoom-{{ $modalId }}'"
+                        type="range"
+                        class="flex-1 accent-primary-600"
+                        :min="zoomMin"
+                        :max="zoomMax"
+                        :step="zoomStep"
+                        :value="zoomValue"
+                        :aria-valuetext="zoomValue + 'x'"
+                        @input="applyZoom(parseFloat($event.target.value))"
+                    />
+                    <span class="text-xs tabular-nums text-gray-500 dark:text-gray-400 w-10 text-right" x-text="zoomValue + 'x'"></span>
+                </div>
+            </div>
+
+            {{-- Last scan banner. aria-live so a screen reader announces the
+                 read: the visual flash and the beep are the only other cues. --}}
             <div
                 x-show="lastScannedCode"
                 x-cloak
+                aria-live="polite"
                 class="flex items-center justify-between gap-3 p-3 rounded-lg bg-green-100 text-green-900 dark:bg-green-900/50 dark:text-green-100 text-sm"
             >
                 <div class="flex items-center gap-2 min-w-0">

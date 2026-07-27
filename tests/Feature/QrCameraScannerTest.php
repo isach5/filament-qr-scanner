@@ -189,3 +189,67 @@ it('gives every instance its own modal id', function () {
 
     expect($first[0])->not->toBe($second[0]);
 });
+
+it('offers torch and zoom only when the running camera has them', function () {
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    // Both are track capabilities, unknown until the camera is running, so the
+    // controls have to be gated on what readCameraCapabilities() found.
+    expect($html)
+        ->toContain('readCameraCapabilities')
+        ->toContain('x-show="torchSupported || zoomSupported"')
+        ->toContain('toggleTorch()')
+        ->toContain('applyZoom(parseFloat($event.target.value))')
+        ->toContain(__('filament-qr-scanner::scanner.zoom'));
+});
+
+it('remembers the torch and zoom the operator chose', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain("localStorage.getItem('qr-scanner-torch')")
+        ->toContain("localStorage.setItem('qr-scanner-torch'")
+        ->toContain("localStorage.getItem('qr-scanner-zoom')")
+        ->toContain("localStorage.setItem('qr-scanner-zoom'");
+});
+
+it('uses a fixed scan window by default', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('qrbox: { width: 250, height: 250 }');
+});
+
+it('sizes the scan window against the viewfinder when given a ratio', function () {
+    $html = Blade::render('<x-qr-camera-scanner :qrbox-ratio="0.7" />');
+
+    expect($html)
+        ->toContain('Math.min(w, h) * 0.7')
+        ->not->toContain('qrbox: { width: 250');
+});
+
+it('takes the scan window ratio from config too', function () {
+    config()->set('filament-qr-scanner.scanner.qrbox_ratio', 0.5);
+
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('Math.min(w, h) * 0.5');
+});
+
+it('refuses a scan window ratio outside its range', function (float $ratio) {
+    expect(fn () => Blade::render("<x-qr-camera-scanner :qrbox-ratio=\"{$ratio}\" />"))
+        ->toThrow(ViewException::class, 'qrbox ratio must be greater than 0 and at most 1');
+})->with([0.0, -0.5, 1.5, 2.0]);
+
+it('prefers the browser native decoder by default', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('useBarCodeDetectorIfSupported: true');
+});
+
+it('can be forced onto the javascript decoder', function () {
+    config()->set('filament-qr-scanner.scanner.native_decoder', false);
+
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('useBarCodeDetectorIfSupported: false');
+});
+
+it('announces the last read to assistive technology and respects reduced motion', function () {
+    expect(Blade::render('<x-qr-camera-scanner />'))
+        ->toContain('aria-live="polite"')
+        ->toContain('motion-reduce:transition-none')
+        ->toContain(':aria-pressed');
+});
