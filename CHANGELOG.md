@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.7.1 — 2026-07-27
+
+### Fixed
+
+- The controls overlaid on the camera feed are styled inline instead of with
+  Tailwind utilities. The package ships no CSS and a host app's Tailwind never
+  scans its views, so classes like `sr-only` or `bg-gray-950/60` may simply not
+  exist there — which is how the hidden zoom label rendered as visible black
+  text over the feed, and the gradient behind the controls did not render at
+  all. Nothing about the component now depends on the host's build.
+
 ## v1.7.0 — 2026-07-27
 
 ### Fixed

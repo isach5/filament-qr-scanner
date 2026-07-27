@@ -543,7 +543,8 @@
                 <div
                     x-show="scanCount > 0"
                     x-cloak
-                    class="pointer-events-none absolute right-2 top-2 rounded-full bg-gray-950/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm"
+                    class="pointer-events-none"
+                    style="position:absolute;top:.5rem;right:.5rem;border-radius:9999px;background:rgba(3,7,18,.65);color:#fff;font-size:.75rem;font-weight:600;padding:.25rem .625rem;backdrop-filter:blur(4px)"
                     x-text="scanCount + (scanCount === 1 ? ' {{ __('filament-qr-scanner::scanner.reading_singular') }}' : ' {{ __('filament-qr-scanner::scanner.reading_plural') }}')"
                 ></div>
 
@@ -554,7 +555,7 @@
                 <div
                     x-show="torchSupported || zoomSupported"
                     x-cloak
-                    class="absolute inset-x-0 bottom-0 flex min-w-0 items-center gap-3 bg-gradient-to-t from-gray-950/80 to-transparent px-3 pb-3 pt-6"
+                    style="position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:.75rem;min-width:0;padding:1.5rem .75rem .75rem;background:linear-gradient(to top,rgba(3,7,18,.85),rgba(3,7,18,0))"
                 >
                     <button
                         x-show="torchSupported"
@@ -563,20 +564,25 @@
                         :aria-pressed="torchOn ? 'true' : 'false'"
                         aria-label="{{ __('filament-qr-scanner::scanner.torch') }}"
                         title="{{ __('filament-qr-scanner::scanner.torch') }}"
-                        :class="torchOn ? 'bg-amber-400 text-amber-950' : 'bg-white/15 text-white hover:bg-white/25'"
-                        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full backdrop-blur-sm transition"
+                        :style="torchOn
+                            ? 'background:#fbbf24;color:#451a03'
+                            : 'background:rgba(255,255,255,.18);color:#fff'"
+                        style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:2.25rem;height:2.25rem;border-radius:9999px;backdrop-filter:blur(4px)"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4.5 w-4.5" style="width:1.125rem;height:1.125rem" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
                         </svg>
                     </button>
 
-                    <div x-show="zoomSupported" class="flex min-w-0 flex-1 items-center gap-2">
-                        <label :for="'qr-zoom-{{ $modalId }}'" class="sr-only">{{ __('filament-qr-scanner::scanner.zoom') }}</label>
+                    <div x-show="zoomSupported" style="display:flex;align-items:center;gap:.5rem;min-width:0;flex:1">
+                        <label
+                            :for="'qr-zoom-{{ $modalId }}'"
+                            style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0"
+                        >{{ __('filament-qr-scanner::scanner.zoom') }}</label>
                         <input
                             :id="'qr-zoom-{{ $modalId }}'"
                             type="range"
-                            class="min-w-0 flex-1 accent-white"
+                            style="min-width:0;flex:1;accent-color:#fff"
                             :min="zoomMin"
                             :max="zoomMax"
                             :step="zoomStep"
@@ -584,7 +590,10 @@
                             :aria-valuetext="zoomValue + 'x'"
                             @input="applyZoom(parseFloat($event.target.value))"
                         />
-                        <span class="w-9 shrink-0 text-right text-xs font-medium tabular-nums text-white" x-text="zoomValue + 'x'"></span>
+                        <span
+                            style="flex-shrink:0;width:2.25rem;text-align:right;font-size:.75rem;font-weight:500;font-variant-numeric:tabular-nums;color:#fff"
+                            x-text="zoomValue + 'x'"
+                        ></span>
                     </div>
                 </div>
             </div>

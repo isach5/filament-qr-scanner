@@ -377,7 +377,7 @@ it('keeps the sound toggle in the toolbar and one action in the footer', functio
 
 it('overlays torch and zoom on the feed instead of adding a row', function () {
     expect(Blade::render('<x-qr-camera-scanner />'))
-        ->toContain('absolute inset-x-0 bottom-0')
+        ->toContain('position:absolute;left:0;right:0;bottom:0')
         ->toContain('toggleTorch()')
         ->toContain('applyZoom(parseFloat($event.target.value))');
 });
@@ -390,7 +390,7 @@ it('shows torch state with colour, never with changing text', function () {
     expect($html)
         ->toContain('aria-label="' . __('filament-qr-scanner::scanner.torch') . '"')
         ->toContain(':aria-pressed="torchOn')
-        ->toContain("torchOn ? 'bg-amber-400 text-amber-950'")
+        ->toContain("background:#fbbf24")
         ->not->toContain('torch_on')
         ->not->toContain('torch_off');
 });
@@ -440,4 +440,18 @@ it('keeps every window listener free of raw double quotes too', function () {
 
         expect($matches[1] ?? null)->toBe($expected, "listener for {$event}");
     }
+});
+
+it('styles the overlay inline so it does not need the host app tailwind build', function () {
+    // The package ships no CSS and the host's Tailwind never scans it, so a
+    // class like sr-only or bg-gray-950/60 may simply not exist there — which
+    // is how the hidden zoom label ended up as visible black text over the
+    // camera feed.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('background:linear-gradient(to top,rgba(3,7,18,.85),rgba(3,7,18,0))')
+        ->toContain('clip:rect(0,0,0,0)')
+        ->toContain('accent-color:#fff')
+        ->not->toContain('class="sr-only"');
 });
