@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.8.2 — 2026-07-27
+
+### Fixed
+
+- The torch label sat under its icon instead of beside it, and the zoom slider
+  fell onto a second line. Cause: **Alpine's `x-show` shows an element by
+  REMOVING its inline `display`**, so `display:flex` and `display:inline-flex`
+  written in the `style` attribute were silently dropped the moment the
+  controls became visible. `x-show` now only ever lands on wrapper elements;
+  the elements that need a display of their own no longer carry it.
+
 ## v1.8.1 — 2026-07-27
 
 ### Fixed

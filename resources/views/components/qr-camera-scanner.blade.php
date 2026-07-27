@@ -561,55 +561,65 @@
                 {{-- Torch and zoom sit on the feed, the way a camera app puts
                      them: where the operator is already looking, and costing no
                      extra height in a dialog that has little to spare. Only
-                     rendered when the running track actually has them. --}}
+                     rendered when the running track actually has them.
+
+                     x-show is deliberately never on an element that needs a
+                     display of its own. Alpine implements show by REMOVING the
+                     inline display property, which silently wiped the flex
+                     layout here and left the torch icon stacked above its label
+                     with the zoom slider pushed onto another line. Wrappers
+                     carry x-show; the elements inside carry the layout. --}}
                 <div
                     x-show="torchSupported || zoomSupported"
                     x-cloak
-                    style="position:absolute;left:0;right:0;bottom:0;display:flex;flex-wrap:nowrap;align-items:center;gap:.5rem;min-width:0;padding:1.5rem .75rem .75rem;background:linear-gradient(to top,rgba(3,7,18,.85),rgba(3,7,18,0))"
+                    style="position:absolute;left:0;right:0;bottom:0;padding:1.5rem .75rem .75rem;background:linear-gradient(to top,rgba(3,7,18,.85),rgba(3,7,18,0))"
                 >
-                    <button
-                        x-show="torchSupported"
-                        type="button"
-                        @click="toggleTorch()"
-                        :aria-pressed="torchOn ? 'true' : 'false'"
-                        aria-label="{{ __('filament-qr-scanner::scanner.torch') }}"
-                        title="{{ __('filament-qr-scanner::scanner.torch') }}"
-                        {{-- An object, not a string: x-bind:style with a string
-                             REPLACES the static style attribute outright, which
-                             stripped this button of its layout and left the icon
-                             and label stacked in a narrow box. An object merges. --}}
-                        :style="{
-                            background: torchOn ? '#fbbf24' : 'rgba(255,255,255,.18)',
-                            color: torchOn ? '#451a03' : '#fff',
-                        }"
-                        style="display:inline-flex;align-items:center;gap:.375rem;justify-content:center;flex:0 0 auto;white-space:nowrap;height:2.25rem;padding:0 .75rem;border-radius:9999px;font-size:.75rem;font-weight:600;backdrop-filter:blur(4px)"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" style="width:1.125rem;height:1.125rem;flex-shrink:0" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
-                        </svg>
-                        <span>{{ __('filament-qr-scanner::scanner.torch') }}</span>
-                    </button>
+                    <div style="display:flex;flex-wrap:nowrap;align-items:center;gap:.5rem;min-width:0">
+                        <span x-show="torchSupported" style="flex:0 0 auto">
+                            <button
+                                type="button"
+                                @click="toggleTorch()"
+                                :aria-pressed="torchOn ? 'true' : 'false'"
+                                aria-label="{{ __('filament-qr-scanner::scanner.torch') }}"
+                                {{-- An object, not a string: x-bind:style with a
+                                     string REPLACES the static style attribute
+                                     outright instead of merging into it. --}}
+                                :style="{
+                                    background: torchOn ? '#fbbf24' : 'rgba(255,255,255,.18)',
+                                    color: torchOn ? '#451a03' : '#fff',
+                                }"
+                                style="display:inline-flex;align-items:center;gap:.375rem;justify-content:center;white-space:nowrap;height:2.25rem;padding:0 .75rem;border-radius:9999px;font-size:.75rem;font-weight:600;backdrop-filter:blur(4px)"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" style="width:1.125rem;height:1.125rem;flex-shrink:0" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+                                </svg>
+                                <span>{{ __('filament-qr-scanner::scanner.torch') }}</span>
+                            </button>
+                        </span>
 
-                    <div x-show="zoomSupported" style="display:flex;align-items:center;gap:.5rem;min-width:0;flex:1 1 auto">
-                        <label
-                            :for="'qr-zoom-{{ $modalId }}'"
-                            style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0"
-                        >{{ __('filament-qr-scanner::scanner.zoom') }}</label>
-                        <input
-                            :id="'qr-zoom-{{ $modalId }}'"
-                            type="range"
-                            style="min-width:0;flex:1;accent-color:#fff"
-                            :min="zoomMin"
-                            :max="zoomMax"
-                            :step="zoomStep"
-                            :value="zoomValue"
-                            :aria-valuetext="zoomValue + 'x'"
-                            @input="applyZoom(parseFloat($event.target.value))"
-                        />
-                        <span
-                            style="flex-shrink:0;width:2.25rem;text-align:right;font-size:.75rem;font-weight:500;font-variant-numeric:tabular-nums;color:#fff"
-                            x-text="zoomValue + 'x'"
-                        ></span>
+                        <span x-show="zoomSupported" style="flex:1 1 auto;min-width:0">
+                            <span style="display:flex;align-items:center;gap:.5rem;min-width:0">
+                                <label
+                                    :for="'qr-zoom-{{ $modalId }}'"
+                                    style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0"
+                                >{{ __('filament-qr-scanner::scanner.zoom') }}</label>
+                                <input
+                                    :id="'qr-zoom-{{ $modalId }}'"
+                                    type="range"
+                                    style="min-width:0;flex:1 1 auto;accent-color:#fff"
+                                    :min="zoomMin"
+                                    :max="zoomMax"
+                                    :step="zoomStep"
+                                    :value="zoomValue"
+                                    :aria-valuetext="zoomValue + 'x'"
+                                    @input="applyZoom(parseFloat($event.target.value))"
+                                />
+                                <span
+                                    style="flex-shrink:0;width:2.25rem;text-align:right;font-size:.75rem;font-weight:500;font-variant-numeric:tabular-nums;color:#fff"
+                                    x-text="zoomValue + 'x'"
+                                ></span>
+                            </span>
+                        </span>
                     </div>
                 </div>
             </div>
