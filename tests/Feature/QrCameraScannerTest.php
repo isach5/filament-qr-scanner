@@ -409,7 +409,7 @@ it('can be told to release the camera immediately', function () {
 it('keeps the close button reachable however tall the body gets', function () {
     expect(Blade::render('<x-qr-camera-scanner />'))
         ->toContain('sticky-footer')
-        ->toContain('max-height: 52vh');
+        ->toContain('max-height: 60vh');
 });
 
 it('maps camera failures to the translated explanations', function () {
@@ -592,18 +592,26 @@ it('reserves the viewfinder height so the dialog never grows', function () {
     $html = Blade::render('<x-qr-camera-scanner />');
 
     expect($html)
-        ->toContain('aspect-ratio: 4 / 3')
+        ->toContain('aspect-ratio: 1 / 1')
         ->toContain('position: absolute; inset: 0;')
         ->not->toContain('min-height: 240px');
 });
 
-it('reserves the pinned aspect ratio when there is one', function () {
-    config()->set('filament-qr-scanner.scanner.aspect_ratio', 1.777);
+it('lets the preview box be reshaped without touching what the camera sends', function () {
+    config()->set('filament-qr-scanner.scanner.viewfinder_ratio', '3 / 4');
 
-    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('aspect-ratio: 1.777');
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('aspect-ratio: 3 / 4')
+        ->not->toContain('aspectRatio:');
+
+    expect(Blade::render('<x-qr-camera-scanner viewfinder-ratio="4 / 3" />'))
+        ->toContain('aspect-ratio: 4 / 3');
 });
 
-it('fits the whole frame in the reserved box rather than cropping it', function () {
-    // contain, not cover: what the operator aims at is what gets decoded.
-    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('object-fit: contain');
+it('fills the preview box rather than leaving dark bars', function () {
+    // A taller box is only worth having if the picture grows into it. The crop
+    // is centred, and so are the scan window and the aiming guide.
+    expect(Blade::render('<x-qr-camera-scanner />'))->toContain('object-fit: cover');
 });

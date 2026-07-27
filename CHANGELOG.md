@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.15.0 — 2026-07-27
+
+### Added
+
+- `scanner.viewfinder_ratio` and a `viewfinder-ratio` prop: the shape of the
+  preview box, independent of the frame the camera sends. It defaults to a
+  square, which is a third taller than the 4:3 frame a phone hands over, and
+  the picture fills it by cropping the sides rather than sitting in dark bars.
+  `3 / 4` is taller still; `4 / 3` matches the frame exactly and is shortest.
+  Measured: the viewfinder goes from 235 px to 313 px on a 393 px-wide screen,
+  and the dialog still does not resize when the picture arrives.
+
+The crop is display only — the sensor keeps handing the decoder its whole
+frame — and it is centred, as are both the scan window and the aiming guide.
+
 ## v1.14.0 — 2026-07-27
 
 ### Fixed

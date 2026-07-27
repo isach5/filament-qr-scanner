@@ -80,6 +80,13 @@ return [
     | 480x480 with resizeMode 'crop-and-scale' and made the viewfinder 78px
     | taller for less picture. Set a number only if you need a fixed shape.
     |
+    | 'viewfinder_ratio' is the shape of the preview box, reserved before any
+    | video exists so the dialog never grows when the picture arrives. It is a
+    | display choice and does not touch what the camera sends: a square box is
+    | taller than the usual 4:3 landscape frame and the picture fills it by
+    | cropping the sides. '3 / 4' is taller still; '4 / 3' matches the frame
+    | exactly and is the shortest.
+    |
     | 'keep_alive' is how many seconds the camera stays parked after the modal
     | closes. Reopening within that window resumes the same stream, so it costs
     | no getUserMedia — which on iOS Safari is what an operator experiences as
@@ -101,6 +108,7 @@ return [
         'qrbox' => 250,
         'qrbox_ratio' => 0.7,
         'aspect_ratio' => null,
+        'viewfinder_ratio' => '1 / 1',
         'duplicate_window' => 1500,
         'formats' => null,
         'native_decoder' => true,

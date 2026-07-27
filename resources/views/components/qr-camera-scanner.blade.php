@@ -12,6 +12,7 @@
     'qrboxSize' => null,
     'qrboxRatio' => null,
     'aspectRatio' => null,
+    'viewfinderRatio' => null,
     'keepAlive' => null,
     'formats' => null,
     'closeOnScan' => false,
@@ -42,10 +43,12 @@
     $keepAlive = max(0, (int) ($keepAlive ?? config('filament-qr-scanner.scanner.keep_alive', 45)));
 
     // The viewfinder reserves its height from this ratio before the stream
-    // exists, so the dialog never grows when the picture arrives. Follows
-    // aspect_ratio when one is pinned; 4/3 is what facingMode hands over on
-    // essentially every phone otherwise.
-    $viewfinderRatio = $aspectRatio !== null ? $aspectRatio : '4 / 3';
+    // exists, so the dialog never grows when the picture arrives. It is a
+    // display choice, independent of the frame the camera hands over: a square
+    // box is taller than the usual 4:3 landscape frame, and the picture fills
+    // it by cropping the sides rather than sitting in dark bars. The sensor
+    // still delivers its full frame to the decoder either way.
+    $viewfinderRatio = $viewfinderRatio ?? config('filament-qr-scanner.scanner.viewfinder_ratio', '1 / 1');
 
     if ($qrboxRatio !== null) {
         $qrboxRatio = (float) $qrboxRatio;
@@ -661,15 +664,17 @@
                    for, not the one it got, so it renders as a rectangle when the
                    browser ignores the requested aspect ratio. Ours replaces it. */
                 #qr-reader-{{ $modalId }} #qr-shaded-region { display: none !important; }
-                /* contain, not cover: the whole frame stays visible, so what
-                   the operator aims at is what gets decoded. A frame whose
-                   shape differs from the reserved box shows thin dark bars
-                   rather than resizing the dialog. */
+                /* cover: the picture fills the reserved box instead of sitting
+                   in dark bars, which is what makes a taller viewfinder worth
+                   having. The crop is centred and so are both the scan window
+                   and the aiming guide, so what the operator frames is still
+                   what gets read. The sensor keeps handing the decoder its
+                   whole frame regardless — this is display only. */
                 #qr-reader-{{ $modalId }} video {
                     display: block;
                     width: 100% !important;
                     height: 100% !important;
-                    object-fit: contain;
+                    object-fit: cover;
                 }
                 @keyframes spin { to { transform: rotate(360deg); } }
             </style>
@@ -680,7 +685,7 @@
                  the side of a phone screen, close button included. --}}
             <div
                 class="relative overflow-hidden rounded-xl"
-                style="width: 100%; max-width: 100%; aspect-ratio: {{ $viewfinderRatio }}; max-height: 52vh; background: #030712; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08)"
+                style="width: 100%; max-width: 100%; aspect-ratio: {{ $viewfinderRatio }}; max-height: 60vh; background: #030712; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08)"
             >
                 {{-- Absolutely positioned so it fills the reserved box without
                      contributing to layout. The box's height comes from its

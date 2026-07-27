@@ -57,6 +57,7 @@ The operator taps the button, grants camera permission once, and every decoded c
 | `fps` / `qrbox-size` | from config | Decoder tuning |
 | `qrbox-ratio` | from config | Scan window as a fraction of the viewfinder |
 | `aspect-ratio` | `null` | Pin the camera feed to a shape; unset takes it as it comes |
+| `viewfinder-ratio` | `1 / 1` | Shape of the preview box, independent of the feed |
 | `formats` | from config | Symbologies to decode (see below) |
 
 Extra attributes (`class`, `id`, …) are merged onto the wrapper.
@@ -96,7 +97,9 @@ A ratio wins over `qrbox-size` when both are given. Tightening the window is als
 
 The camera frame is taken as it comes. Forcing a shape makes the browser crop and scale to reach one the sensor was not built for: measured on an emulated iPhone, asking for a square turned a 640×480 sensor into 480×480 with `resizeMode: crop-and-scale`, costing a third of the field of view and making the viewfinder 78 px taller for less picture. Set `aspect-ratio` to a number only if you need a fixed shape.
 
-The aiming guide is sized from the **short** side of the feed, the same basis the scan window uses, so it stays inside the picture whichever way round the frame arrives.
+The aiming guide is sized from the **short** side of the box, the same basis the scan window uses, so it stays inside the picture whichever way round the frame arrives.
+
+How tall the preview is, though, is a separate decision from what the camera sends. `viewfinder-ratio` shapes the box: a square is a third taller than the 4:3 frame a phone hands over, and the picture fills it by cropping the sides instead of sitting in dark bars. `3 / 4` is taller still, `4 / 3` matches the frame exactly and is the shortest. The crop is display only — the decoder still gets the whole frame — and it is centred, as are the scan window and the guide.
 
 ### Which symbologies to decode
 
@@ -208,6 +211,7 @@ return [
         'qrbox' => 250,
         'qrbox_ratio' => null,     // set it to size against the viewfinder
         'aspect_ratio' => null,    // null = the camera's native frame
+        'viewfinder_ratio' => '1 / 1',
         'duplicate_window' => 1500,
         'formats' => null,         // null = decode every symbology
         'native_decoder' => true,
