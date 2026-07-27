@@ -347,7 +347,7 @@ it('never lets the camera preview grow past the modal', function () {
     // the reader fills a box whose size was already decided, and clips.
     expect(Blade::render('<x-qr-camera-scanner />'))
         ->toContain('max-width: 100%; aspect-ratio:')
-        ->toContain('position: absolute; inset: 0; overflow: hidden;');
+        ->toContain('height: 100% !important;');
 });
 
 it('refuses a nonsensical aspect ratio', function () {
@@ -593,7 +593,7 @@ it('reserves the viewfinder height so the dialog never grows', function () {
 
     expect($html)
         ->toContain('aspect-ratio: 1 / 1')
-        ->toContain('position: absolute; inset: 0;')
+        ->toContain('position: absolute; inset: 0; overflow: hidden;')
         ->not->toContain('min-height: 240px');
 });
 

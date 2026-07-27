@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.15.1 — 2026-07-27
+
+### Fixed
+
+- The taller viewfinder was only taller: the picture sat in it with a black
+  band underneath instead of filling it. html5-qrcode forces `position:
+  relative` on its own container, which wiped the absolute positioning off it,
+  so the video was resolving a percentage height against no height at all. The
+  reserved box now belongs to a wrapper the library never touches. Measured:
+  the video fills 313×313 in a 313 px box.
+
 ## v1.15.0 — 2026-07-27
 
 ### Added

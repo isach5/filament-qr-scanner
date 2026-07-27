@@ -664,6 +664,9 @@
                    for, not the one it got, so it renders as a rectangle when the
                    browser ignores the requested aspect ratio. Ours replaces it. */
                 #qr-reader-{{ $modalId }} #qr-shaded-region { display: none !important; }
+                /* The video needs a parent with a definite height before a
+                   percentage height means anything. */
+                #qr-reader-{{ $modalId }} { height: 100% !important; }
                 /* cover: the picture fills the reserved box instead of sitting
                    in dark bars, which is what makes a taller viewfinder worth
                    having. The crop is centred and so are both the scan window
@@ -687,11 +690,14 @@
                 class="relative overflow-hidden rounded-xl"
                 style="width: 100%; max-width: 100%; aspect-ratio: {{ $viewfinderRatio }}; max-height: 60vh; background: #030712; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08)"
             >
-                {{-- Absolutely positioned so it fills the reserved box without
-                     contributing to layout. The box's height comes from its
-                     aspect ratio, decided before any video exists, so the dialog
-                     does not grow the moment the picture arrives. --}}
-                <div id="qr-reader-{{ $modalId }}" style="position: absolute; inset: 0; overflow: hidden;"></div>
+                {{-- A wrapper the library never touches. html5-qrcode forces
+                     position:relative on its own container, which wiped the
+                     absolute positioning off it and left the video resolving a
+                     percentage height against nothing. The wrapper holds the
+                     reserved box; the library owns everything inside. --}}
+                <div style="position: absolute; inset: 0; overflow: hidden;">
+                    <div id="qr-reader-{{ $modalId }}"></div>
+                </div>
 
                 {{-- Our own aiming square. The library draws one too, but it
                      sizes it from the frame it asked for rather than the frame
