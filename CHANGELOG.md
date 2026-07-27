@@ -35,7 +35,7 @@ most of what production had grown since; this is the whole thing.
 - `html5-qrcode` is bundled and served from the app's own domain through
   `FilamentAsset`, loaded on demand. Panels no longer depend on a CDN reachable
   from the shop floor. `scanner.script_url` restores the old behaviour.
-- Test suite (Pest + Testbench) and CI across PHP 8.2–8.4 and Laravel 11/12.
+- Test suite (Pest + Testbench), run locally with `vendor/bin/pest`.
 - `NOTICE` documenting the bundled Apache-2.0 library.
 
 ### Changed
