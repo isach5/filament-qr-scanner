@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.6.0 — 2026-07-27
+
+### Fixed
+
+- **The modal was wider than a phone screen, and the camera row was why.** A
+  flex row of buttons hands its full intrinsic width to the dialog no matter
+  how it is clipped, so four lenses with names like "Ultra gran angular"
+  pushed the modal — and its close button — off the side of the screen. The
+  switcher is a `<select>` now: it has a width of its own and truncates its own
+  text. Measured on an emulated iPhone with four cameras: dialog 361 px inside
+  a 393 px screen, no horizontal overflow, close button reachable.
+- `min-w-0` on the modal body and on the torch/zoom row, so no future control
+  can force the dialog wide again.
+
 ## v1.5.0 — 2026-07-27
 
 ### Fixed

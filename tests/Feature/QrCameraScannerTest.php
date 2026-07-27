@@ -274,12 +274,23 @@ it('hands the picker a translated name for every lens kind', function () {
     }
 });
 
-it('keeps the camera switcher on one scrollable row', function () {
-    // Four lenses wrapped across two rows steal height from the viewfinder for
-    // a control the operator touches once.
+it('switches camera through a select, not a row of pills', function () {
+    // A flex row of buttons hands the dialog its full intrinsic width however
+    // it is clipped, which pushed the modal off the side of a phone. A select
+    // has a width of its own and truncates its own text.
+    $html = Blade::render('<x-qr-camera-scanner />');
+
+    expect($html)
+        ->toContain('<select')
+        ->toContain('x-model="cameraId"')
+        ->toContain('switchCamera($event.target.value)')
+        ->toContain('min-w-0');
+});
+
+it('lets every row inside the modal shrink below its content', function () {
+    // min-w-0 is what stops a flex child from forcing the dialog wider.
     expect(Blade::render('<x-qr-camera-scanner />'))
-        ->toContain('overflow-x-auto')
-        ->not->toContain('flex flex-wrap items-center gap-2');
+        ->toContain('class="w-full min-w-0 space-y-3"');
 });
 
 it('closes with a neutral button, not a destructive one', function () {

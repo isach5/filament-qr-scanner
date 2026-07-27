@@ -475,49 +475,27 @@
             {{ $modalHeading }}
         </x-slot>
 
-        <div class="space-y-3">
-            {{-- Camera switcher. One row that scrolls sideways: a phone can
-                 report four lenses, and wrapping them steals two rows of
-                 height from the viewfinder for a control used once. --}}
-            <div x-show="cameras.length > 1" x-cloak class="flex w-full min-w-0 max-w-full items-center gap-2 overflow-x-auto pb-1 -mb-1">
-                <span class="shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ __('filament-qr-scanner::scanner.camera') }}:</span>
-                <template x-for="cam in cameras" :key="cam.id">
-                    <button
-                        type="button"
-                        @click="switchCamera(cam.id)"
-                        :aria-pressed="cameraId === cam.id ? 'true' : 'false'"
-                        :class="cameraId === cam.id
-                            ? 'bg-primary-600 text-white shadow-sm'
-                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'"
-                        class="inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 min-h-[32px]"
-                    >
-                        {{-- Front camera --}}
-                        <template x-if="cam.kind === 'front'">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                            </svg>
-                        </template>
-                        {{-- Ultra wide --}}
-                        <template x-if="cam.kind === 'ultrawide'">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M3.293 9.293a1 1 0 000 1.414l3 3a1 1 0 101.414-1.414L6.414 11H13.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 9H6.414l1.293-1.293a1 1 0 00-1.414-1.414l-3 3z" clip-rule="evenodd" />
-                            </svg>
-                        </template>
-                        {{-- Telephoto --}}
-                        <template x-if="cam.kind === 'telephoto'">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
-                            </svg>
-                        </template>
-                        {{-- Any rear lens / unknown device --}}
-                        <template x-if="!['front', 'ultrawide', 'telephoto'].includes(cam.kind)">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
-                            </svg>
-                        </template>
-                        <span x-text="cam.name"></span>
-                    </button>
-                </template>
+        <div class="w-full min-w-0 space-y-3">
+            {{-- Camera switcher. A select, not a row of buttons: a phone reports
+                 up to four lenses, and a flex row of pills contributes its full
+                 intrinsic width to the dialog no matter how it is clipped —
+                 which dragged the modal off the side of the screen. A select
+                 has a width of its own and truncates its own text. --}}
+            <div x-show="cameras.length > 1" x-cloak class="flex w-full min-w-0 items-center gap-2">
+                <label
+                    :for="'qr-camera-{{ $modalId }}'"
+                    class="shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >{{ __('filament-qr-scanner::scanner.camera') }}:</label>
+                <select
+                    :id="'qr-camera-{{ $modalId }}'"
+                    x-model="cameraId"
+                    @change="switchCamera($event.target.value)"
+                    class="min-w-0 flex-1 truncate rounded-lg border-gray-300 bg-white py-1.5 pl-3 pr-8 text-sm text-gray-900 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-white"
+                >
+                    <template x-for="cam in cameras" :key="cam.id">
+                        <option :value="cam.id" x-text="cam.name"></option>
+                    </template>
+                </select>
             </div>
 
             {{-- Scanner viewport with flash overlay.
@@ -536,7 +514,7 @@
 
             {{-- Torch and zoom: only rendered when the running track has them.
                  A laptop webcam has neither, a phone back camera has both. --}}
-            <div x-show="torchSupported || zoomSupported" x-cloak class="flex flex-wrap items-center gap-3">
+            <div x-show="torchSupported || zoomSupported" x-cloak class="flex w-full min-w-0 flex-wrap items-center gap-3">
                 <button
                     x-show="torchSupported"
                     type="button"

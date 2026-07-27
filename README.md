@@ -66,7 +66,11 @@ A modern phone reports several rear cameras, and the browser hands them over as 
 - **It opens on the main wide lens**, not on whatever the browser happened to enumerate last. The telephoto cannot focus at the distance an operator holds a label, and the ultra wide spends its resolution on everything except the code. Preference order: plain wide → generic rear → ultra wide → macro → telephoto → front.
 - **Every lens gets a name of its own** — "Wide", "Ultra wide", "Telephoto", "Macro" — instead of three buttons all reading "Back". If two names would still collide they are numbered.
 
-Whatever the operator picks is remembered and always wins over the heuristic on the next open: they know their workstation better than a regex does.
+Whatever the operator picks is remembered and always wins over the heuristic on the next open: they know their workstation better than a regex does. A camera that no longer exists is forgotten rather than failing every future open.
+
+The switcher is a `<select>` rather than a row of buttons, deliberately: a row of pills hands the dialog its full intrinsic width however it is clipped, and four lenses with long names were enough to push the modal off the side of a phone screen.
+
+Opening the scanner makes exactly one `getUserMedia` call — the one that starts the camera. Probing for permission first and enumerating cameras second is what makes iOS Safari ask the operator again and again.
 
 ### Torch and zoom
 
